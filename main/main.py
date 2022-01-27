@@ -35,7 +35,7 @@ parser.add_argument('--h_dim', type=int, default=32)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--rep', type=int, default=5)
 parser.add_argument('--num_samples', type=int, default=300)
-parser.add_argument('--x1x2Ind', type=eval, choices=[True, False], default=True)
+parser.add_argument('--stInd', type=eval, choices=[True, False], default=True)
 parser.add_argument('--load', type=eval, choices=[True, False], default=False)
 parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/thindrives/Dissertation/node_ffr-main/results')
 args = parser.parse_args()
@@ -47,7 +47,7 @@ def run(device,seed):
     if args.data == 'deterministic_lv':
         sdense = np.linspace(0, 15, 100)
         dataset = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10,
-                                                num_samples=args.num_samples, x1x2Ind=args.x1x2Ind, sd=args.sd, sd_u=args.sd_u,
+                                                num_samples=args.num_samples, stInd=args.stInd, sd=args.sd, sd_u=args.sd_u,
                                                 sd_v=args.sd_v, rho=args.rho, lambdaX=args.lambdaX, sdense=sdense,
                                                 num_context_range=(5, 6),seed=seed)
     x_dim = 1

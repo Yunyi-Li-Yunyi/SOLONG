@@ -307,7 +307,7 @@ class DeterministicLotkaVolterraData(Dataset):
     def __init__(self,
                  alpha=None, beta=None, gamma=None,
                  num_samples=1000, lambdaX=1., sdense=None, sd=0., num_context_range=(5, 6),
-                 x1x2Ind=True, sd_v=0., sd_u=0., rho=0.,
+                 stInd=True, sd_v=0., sd_u=0., rho=0.,
                  lambdaY=1., sd_y=0., num_context_rangeY=(5, 6), seed=0):
 
         self.alpha = alpha
@@ -317,7 +317,7 @@ class DeterministicLotkaVolterraData(Dataset):
         self.num_samples = num_samples
         self.sdense = sdense
         self.lambdaX = lambdaX
-        self.x1x2Ind = x1x2Ind
+        self.stInd = stInd
         self.sd_v = sd_v
         self.sd_u = sd_u
         self.sd = sd
@@ -371,21 +371,38 @@ class DeterministicLotkaVolterraData(Dataset):
             """
             return np.array([X[0] * (1 - X[0]) - (a * X[0] * X[1] / (X[0] + c)),
                              b * X[1] * (1 - X[1] / X[0])])
-        def error(sim):
+        def error_cov():
             """
-            X1i(t)=X1(t)+vi+\epsilon(t)
-            X2i(t)=X2(t)+ui+\eta(t)
-
+            Define the variance-covariance matrix to generate errors
             sim A:
-            \epsilon(t),\eta(t) are iid
-            vi, ui are 0s
-            sim B:
-            \epsilon(t),\eta(t) are iid
-            vi, ui are independent, vi~N(0,sd_v^2); ui~N(0,sd_u^2)
+            self.sd_v != None
+            self.sd_u != None
+            self.rho = None
 
+            sim B:
+            self.sd_v != None
+            self.sd_u != None
+            self.rho = 0
+
+            sim B2:
+            self.sd_v = None
+            self.sd_u = None
+
+            sim C:
+            self.sd_v !=None
+            self.sd_u !=None
+            self.rho !=0
             :return:
-            Return the error matrix of [[vi+\epsilon(t)][u+\eta(t)]]
+            Return the variance-covariance matrix of errors
             """
+            # sim A:
+            if (self.sd_v!=None & self.sd_u!=None & self.rho==None):
+                sigma11=self.sd_v**2*np.identity(sizeX)
+                sigma22=self.sd_u**2*np.identity(sizeX)
+                sigma12=np.zeros((sizeX,sizeX))
+                sigma21 = np.zeros((sizeX, sizeX))
+            elif (self.sd_v!=None & self.sd_u!=None & self.rho==None):
+
             vu =  np.zeros_like(X_true)
             def vuMatrix():
                 if sim == 'simA':
@@ -432,6 +449,11 @@ class DeterministicLotkaVolterraData(Dataset):
             vu_values = vuMatrix()
             ee_values = eeMatrix()
             return vu_values+ee_values
+
+
+
+
+
         sizeX = np.random.choice(range(*self.num_context_range), size=1, replace=True)
         if dense == True:
             s = self.sdense

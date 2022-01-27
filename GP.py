@@ -13,7 +13,7 @@ nb_of_samples = 41
 number_of_functions = 5
 X= np.expand_dims(np.linspace(-4,4,nb_of_samples),1)
 cov = exponentiated_quadratic(X,X)
-
+print(cov)
 ys = np.random.multivariate_normal(
     mean=np.zeros(nb_of_samples), cov=cov,
     size = number_of_functions
