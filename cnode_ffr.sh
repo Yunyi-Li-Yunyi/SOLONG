@@ -15,8 +15,9 @@ python -m main.main \
   --sd_u 0.3 \
   --sd_v 0.3 \
   --rho 0.9 \
+  --h_dim 32 \
   --epochs 2000 \
-  --rep 1 \
+  --rep 25 \
   --outdir $OUTDIR \
 
 

@@ -29,6 +29,9 @@ parser.add_argument('--rho', type=float, default=0.)  # correlation coefficient 
 parser.add_argument('--lambdaX', type=float, default=2.) # lambda for duration of follow up of X: exp(\lambda)
 
 parser.add_argument('--data', type=str, choices=['deterministic_lv'], default='deterministic_lv')
+parser.add_argument('--h_dim', type=int, default=32)
+# parser.add_argument('--batch_size', type=int, default=66)
+
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--rep', type=int, default=5)
 parser.add_argument('--num_samples', type=int, default=300)
@@ -52,7 +55,7 @@ def run(device,seed):
 
     func = None
     if args.model == 'vnode':
-        h_dim = 32
+        h_dim = args.h_dim
         func = VanillaODEFunc(x_dim, h_dim, y_dim).to(device)
 
     if args.load:
@@ -131,7 +134,7 @@ if __name__ == "__main__":
         json.dump(args.__dict__, f, indent=2)
 
     # set device
-    device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
     iteration(device,args.rep)
     outputPlot()

@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from torchdiffeq import odeint
 # from torchdiffeq import odeint_adjoint as odeint
 import matplotlib.pyplot as plt
+import time
 
 from joblib import Parallel, delayed
 import multiprocessing
@@ -58,9 +59,11 @@ class Trainer:
         for epoch in range(epochs):
             print(f'Epoch {epoch}')
             print(f'Seed {seed}')
+            epoch_start_time = time.time()
             epoch_loss = self.train_epoch(train_data_loader, epoch,seed)
             self.epoch_loss_history.append(epoch_loss)
-
+            epoch_end_time = time.time()
+            print('Each Epoch time = ' + str(epoch_end_time - epoch_start_time))
 
     def train_epoch(self, data_loader, epoch,seed):
         epoch_loss = 0.
@@ -109,6 +112,6 @@ class Trainer:
 
                 plt.legend()
                 plt.savefig(self.folder + "/plot" +str(seed)+'_'+ str(epoch))
-
+            #
         print(epoch_loss)
         return epoch_loss
