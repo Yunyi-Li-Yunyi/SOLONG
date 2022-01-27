@@ -1,15 +1,15 @@
 #!/bin/bash
 # Written by Yunyi Li under MIT license: https://github.com/Yunyi-learner/master/LICENSE.md
-#ROOTDIR=`readlink -f $0 | xargs dirname`/
-ROOTDIR='/N/u/liyuny/Carbonate/thindrives/Dissertation/node_ffr-main'
+ROOTDIR=`readlink -f $0 | xargs dirname`/
+#ROOTDIR='/N/u/liyuny/Carbonate/cnode_ffr-main/'
 OUTDIR='/N/u/liyuny/Carbonate/cnode_ffr_main'
 export PYTHONPATH=$PYTHONPATH:$ROOTDIR
 
-#echo $PYTHONPATH
+module load python/3.6.8
 
 echo Run simulation
 python -m main.main \
-  --exp_name test_a \
+  --exp_name test_b \
   --x1x2Ind True \
   --sd 0.5 \
   --sd_u 0.3 \
