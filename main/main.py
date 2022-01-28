@@ -6,7 +6,7 @@ import torch
 import time
 
 from models.NODEmodels import *
-from data.dataset import DeterministicLotkaVolterraData
+from data.dataset_ import DeterministicLotkaVolterraData
 from models.utils import PredData
 from torch.utils.data import DataLoader
 from models.utils import ObservedData as od
@@ -22,6 +22,7 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--exp_name', type=str, required=True)
 
 parser.add_argument('--model', type=str, choices=['vnode'], default='vnode')
+parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2a','simB2b'],default='simA') # simulation senario
 parser.add_argument('--sd', type=float, default=0.) # sd for i.i.d. random error
 parser.add_argument('--sd_v', type=float, default=0.) # sd for error of X1
 parser.add_argument('--sd_u', type=float, default=0.) # sd for error of X2
@@ -44,10 +45,11 @@ def run(device,seed):
 
     # Create dataset
     print('Generating Data')
+    print('Scenario: '+args.scenario)
     if args.data == 'deterministic_lv':
         sdense = np.linspace(0, 15, 100)
         dataset = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10,
-                                                num_samples=args.num_samples, stInd=args.stInd, sd=args.sd, sd_u=args.sd_u,
+                                                num_samples=args.num_samples, scenario=args.scenario, sd=args.sd, sd_u=args.sd_u,
                                                 sd_v=args.sd_v, rho=args.rho, lambdaX=args.lambdaX, sdense=sdense,
                                                 num_context_range=(5, 6),seed=seed)
     x_dim = 1

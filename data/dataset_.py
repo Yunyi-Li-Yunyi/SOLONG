@@ -17,243 +17,6 @@ from scipy.integrate import odeint
 from scipy import ndimage
 import scipy.spatial.distance
 
-
-#
-# class DeterministicLotkaVolterraData(Dataset):
-#     """
-#     Dataset of Lotka-Voltera time series.
-#         Populations (u,v) evolve according to
-#         version 1
-#             u' = \alpha u - \beta u v
-#             v' = \delta uv - \gamma v
-#
-#         version 2
-#             u' = u*(1-u) -\alpha * u*v/(u+c)
-#             v' = \beta*v*(1-(v/u))
-#
-#         with the dataset sampled either with (u_0,v_0) fixed and (\alpha, \beta,
-#         \gamma, \delta) varied, or varying the initial populations for a fixed
-#         set of greeks.
-#     If initial values for (u,v) are provided then the greeks are sampled from
-#         (0.9,0.05,1.25,0.5) to (1.1,0.15,1.75,1.0)
-#     If values are provided for the greeks then (u_0 = v_0) is sampled from
-#         (0.5) to (2.0)
-#     If both are provided, defaults to initial population mode (greeks vary)
-#     ---------
-#     version : int
-#     initial_u   : int
-#     fixed initial value for u
-#     initial_v   : int
-#         fixed initial value for v
-#     fixed_alpha : int
-#         fixed initial value for \alpha
-#     fixed_beta  : int
-#         fixed initial value for \beta
-#     fixed_gamma : int
-#         fixed initial value for \gamme
-#     fixed_delta : int
-#         fixed initial value for \delta
-#     num_samples : int
-#         Number of samples of the function contained in dataset.
-#     steps : int
-#         how many time steps to take from 0 to end_time
-#     end_time : float
-#         the final time (simulation runs from 0 to end_time)
-#     sd : float
-#         the standard deviation of random normal noise
-#     num_context_range : Tuple[int,int]
-#         The range of number of context points.
-#
-#     end_time_y: float
-#         the final time of outcome(simulation runs from 0 to end_time_y)
-#     steps_y: int
-#             how many time steps to take from 0 to end_time_y
-#     sd_y: float
-#         the standard deviation of random normal noise
-#     """
-#
-#     def __init__(self, version=1, initial_u=None, initial_v=None,
-#                  alpha=None, beta=None, gamma=None, delta=None,
-#                  num_samples=1000, steps=100, end_time=15, sd=0., num_context_range=(5, 6),
-#                  x1x2Ind=True, sd_v=0., sd_u=0., rho=0.,
-#                  end_time_y=10, steps_y=4, sd_y=0.,seed=0):
-#
-#         if initial_u is None:
-#             self.mode = 'greek'
-#             self.alpha = alpha
-#             self.beta = beta
-#             self.gamma = gamma
-#             self.delta = delta
-#         else:
-#             self.mode = 'population'
-#             self.initial_u = initial_u
-#             self.initial_v = initial_v
-#
-#         print('Lotka-Voltera is in {self.mode} mode')
-#
-#         self.version = version
-#         self.num_samples = num_samples
-#         self.steps = steps
-#         self.end_time = end_time
-#         self.sd = sd
-#         self.sd_v = sd_v
-#         self.sd_u = sd_u
-#         self.rho = rho
-#         self.end_time_y = end_time_y
-#         self.steps_y = steps_y
-#         self.sd_y = sd_y
-#         self.x1x2Ind = x1x2Ind
-#         self.seed = seed
-#
-#         # Generate data
-#         self.data = []
-#         self.SparseData = []
-#         self.OutcomeData = []
-#         print("Creating dataset...", flush=True)
-#
-#         np.random.seed(self.seed)
-#
-#         removed = 0
-#         for samples in tqdm(range(num_samples)):
-#             # generate x, states_obs, states_true
-#             # when sd = 0. there's no observation noise, states_obs = states_true
-#             times, states_obs, states_true = self.generate_ts()
-#             times = torch.FloatTensor(times)
-#             # times = times.unsqueeze(1)
-#             states_obs = torch.FloatTensor(states_obs)
-#             states_true = torch.FloatTensor(states_true)
-#
-#             if self.mode == 'population':
-#                 states_obs = states_obs / 100
-#                 states_true = states_true / 100
-#
-#             # states = torch.cat((states,times),dim=-1)
-#
-#             self.data.append((times, states_obs, states_true))
-#
-#             # Generate Outcome
-#             self.OutcomeData.append(self.Outcome(states_true))
-#
-#             # Generate Sparse Data
-#             points = np.arange(self.steps)
-#             initial_loc = np.array([0])
-#
-#             size = np.random.choice(range(*num_context_range), size=1, replace=True)
-#             locations = np.random.choice(points, size=self.steps - size, replace=False)
-#             locations = np.concatenate([initial_loc, locations])
-#             timseSparse = torch.clone(times)
-#             timseSparse[locations] = float('nan')
-#             states_obsSparse = torch.clone(states_obs)
-#             states_obsSparse[locations] = float('nan')
-#             states_trueSparse = torch.clone(states_true)
-#             states_trueSparse[locations] = float('nan')
-#
-#             self.SparseData.append((timseSparse, states_obsSparse, states_trueSparse))
-#
-#         self.num_samples -= removed
-#
-#     def generate_ts(self):
-#         if self.mode == 'population':
-#             X_0 = np.array([self.initial_u, self.initial_v])
-#             a = np.random.uniform(0.9, 1.1)
-#             b = np.random.uniform(0.05, 0.15)
-#             c = np.random.uniform(1.25, 1.75)
-#             d = np.random.uniform(0.5, 1.0)
-#
-#         else:
-#             equal_pop = np.random.uniform(1., 1.)
-#             if self.version == 1:
-#                 X_0 = np.array([2 * equal_pop, equal_pop])
-#             if self.version == 2:
-#                 X_0 = np.array([equal_pop, equal_pop])
-#             a, b, c, d = self.alpha, self.beta, self.gamma, self.delta
-#
-#         def dX_dt(X, s=0):
-#             """
-#             Return the growth rate of fox and rabbit populations
-#             """
-#             if self.version == 1:
-#                 return np.array([a * X[0] - b * X[0] * X[0],
-#                                  -c * X[1] + d * X[0] * X[1]])
-#             if self.version == 2:
-#                 return np.array([X[0] * (1 - X[0]) - (a * X[0] * X[1] / (X[0] + c)),
-#                                  b * X[1] * (1 - X[1] / X[0])])
-#
-#         s = np.linspace(0, self.end_time, self.steps)
-#
-#         X_true = odeint(dX_dt, X_0, s)
-#         if self.x1x2Ind == True:
-#             uv = np.zeros_like(X_true)
-#
-#             # vi: random errors for X1i
-#             vi = np.random.normal(0, self.sd_v, 1)
-#             # ui: random errors for X2i
-#             ui = np.random.normal(0, self.sd_u, 1)
-#
-#             uv[:, 0] = vi
-#             uv[:, 1] = ui
-#
-#         # correlation within subject and correlation between X1(t), X2(t)
-#         else:
-#             uv = np.random.multivariate_normal([0,0],[[1,self.rho],[self.rho,1]],X_true.shape[0])
-#
-#         X_obs = X_true + uv + np.random.normal(0, self.sd, X_true.shape)
-#
-#         return s, X_obs, X_true
-#
-#     def Outcome(self, X_true):
-#         a, b, c, d = self.alpha, self.beta, self.gamma, self.delta
-#
-#         t = np.linspace(0, self.end_time_y, self.steps_y)
-#         s = np.linspace(0, self.end_time, self.steps)
-#
-#         def Beta0(t):
-#             b0 = 2 * np.exp(-(t - 2.5) ** 2)
-#             return torch.FloatTensor(b0)
-#
-#         def Beta1(t, s):
-#             b1 = []
-#             for si in s:
-#                 b1.append(np.cos(t * np.pi / 3) * np.sin(si * np.pi / 5))
-#             return torch.FloatTensor(b1)
-#
-#         def Beta2(t, s):
-#             b2 = []
-#             for si in s:
-#                 b2.append(np.sqrt(t * si) / 4.2)
-#             return torch.FloatTensor(b2)
-#
-#         def dX_dt_tensor(X, s=0):
-#             """
-#             Return the growth rate of fox and rabbit populations
-#             """
-#             if self.version == 1:
-#                 return [a * X[0] - b * X[0] * X[0],
-#                         -c * X[:, 1] + d * X[:, 0] * X[:, 1]]
-#             if self.version == 2:
-#                 return [X[:, 0] * (1 - X[:, 0]) - (a * X[:, 0] * X[:, 1] / (X[:, 0] + c)),
-#                         b * X[:, 1] * (1 - X[:, 1] / X[:, 0])]
-#
-#         by = s[1] - s[0]  # the interval length aka delta_X
-#         lx1 = by * dX_dt_tensor(X_true)[0]
-#         lx2 = by * dX_dt_tensor(X_true)[1]
-#
-#         beta0 = Beta0(t)
-#         beta1 = Beta1(t, s)
-#         beta2 = Beta2(t, s)
-#
-#         eta = torch.matmul(lx1, beta1) + torch.matmul(lx2, beta2)
-#         outcome = beta0 + eta
-#         outcome = outcome + np.random.normal(0, self.sd_y, outcome.shape)
-#         return outcome
-#
-#     def __getitem__(self, index):
-#         return self.data[index], self.SparseData[index], self.OutcomeData[index]
-#
-#     def __len__(self):
-#         return self.num_samples
-
-
 class DeterministicLotkaVolterraData(Dataset):
     """
     Dataset of Lotka-Volterra time series.
@@ -307,7 +70,7 @@ class DeterministicLotkaVolterraData(Dataset):
     def __init__(self,
                  alpha=None, beta=None, gamma=None,
                  num_samples=1000, lambdaX=1., sdense=None, sd=0., num_context_range=(5, 6),
-                 stInd=True, sd_v=0., sd_u=0., rho=0.,
+                 sd_v=0., sd_u=0., rho=0.,scenario=None,
                  lambdaY=1., sd_y=0., num_context_rangeY=(5, 6), seed=0):
 
         self.alpha = alpha
@@ -317,11 +80,11 @@ class DeterministicLotkaVolterraData(Dataset):
         self.num_samples = num_samples
         self.sdense = sdense
         self.lambdaX = lambdaX
-        self.stInd = stInd
         self.sd_v = sd_v
         self.sd_u = sd_u
         self.sd = sd
         self.rho = rho
+        self.scenario=scenario
         self.num_context_range = num_context_range
 
         self.lambdaY = lambdaY
@@ -371,7 +134,7 @@ class DeterministicLotkaVolterraData(Dataset):
             """
             return np.array([X[0] * (1 - X[0]) - (a * X[0] * X[1] / (X[0] + c)),
                              b * X[1] * (1 - X[1] / X[0])])
-        def error_cov():
+        def error_cov(sizeX,scenario):
             """
             Define the variance-covariance matrix to generate errors
             sim A:
@@ -396,63 +159,63 @@ class DeterministicLotkaVolterraData(Dataset):
             Return the variance-covariance matrix of errors
             """
             # sim A:
-            if (self.sd_v!=None & self.sd_u!=None & self.rho==None):
+            if scenario=='simA':
+                # print("Sim A")
                 sigma11=self.sd_v**2*np.identity(sizeX)
                 sigma22=self.sd_u**2*np.identity(sizeX)
                 sigma12=np.zeros((sizeX,sizeX))
                 sigma21 = np.zeros((sizeX, sizeX))
-            elif (self.sd_v!=None & self.sd_u!=None & self.rho==None):
 
-            vu =  np.zeros_like(X_true)
-            def vuMatrix():
-                if sim == 'simA':
-                    pass
-                elif sim =='simB':
+            # sim B:
+            elif scenario=='simB':
+                print("Sim B")
+                sigma11=self.sd_v**2*np.ones((sizeX,sizeX))
+                sigma22=self.sd_u**2*np.ones((sizeX,sizeX))
+                sigma12=np.zeros((sizeX,sizeX))
+                sigma21 = np.zeros((sizeX, sizeX))
 
-                    # vi: random errors for X1i
-                    vi = np.random.normal(0, self.sd_v, 1)
-                    # ui: random errors for X2i
-                    ui = np.random.normal(0, self.sd_u, 1)
+            # sim B2a:
+            elif scenario=='simB2a':
+                # print("Sim B2a")
+                def exponentiated_quadratic(xa, xb):
+                    """Exponentiated quadratic with \sigma=1"""
+                    # L2 distance (Squared Euclidian)
+                    sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
+                    return np.exp(sq_norm)
 
-                    vu[:, 0] = vi
-                    vu[:, 1] = ui
+                X = np.expand_dims(s, 1)
+                sigma11=exponentiated_quadratic(X, X)
+                sigma22=exponentiated_quadratic(X, X)
+                sigma12=np.zeros((sizeX,sizeX))
+                sigma21 =np.zeros((sizeX, sizeX))
 
-                elif sim =='simC':
-                    vu_ = np.random.multivariate_normal([0, 0], [[self.sd_v ** 2, self.rho * self.sd_u * self.sd_v],
-                                                                 [self.rho * self.sd_u * self.sd_v, self.sd_u ** 2]], 1)
-                    vu[:, 0] = vu_[0][0]
-                    vu[:, 1] = vu_[0][1]
-                return vu
+            # sim C:
+            elif scenario=='simC':
+                # print("Sim C")
+                sigma11=self.sd_v**2*np.ones((sizeX,sizeX))
+                sigma22=self.sd_u**2*np.ones((sizeX,sizeX))
+                sigma12=self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
+                sigma21=self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
 
-            def eeMatrix():
-                if sim=='simA':
-                    ee = np.random.normal(0, self.sd, X_true.shape) # ee is matrix of [\epsilon,\eta]
-                elif sim=='simB':
-                    ee = np.random.normal(0, self.sd, X_true.shape) # ee is matrix of [\epsilon,\eta]
-                elif sim=='simC':
-                    ee = np.random.normal(0, self.sd, X_true.shape) # ee is matrix of [\epsilon,\eta]
-                elif sim=='simB2':
-                    def exponentiated_quadratic(xa, xb):
-                        """Exponentiated quadratic with \sigma=1"""
-                        # L2 distance (Squared Euclidian)
-                        sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
-                        return np.exp(sq_norm)
+            # sim B2b:
+            elif scenario=='simB2b':
+                # print("Sim B2b")
+                def exponentiated_quadratic(xa, xb):
+                    """Exponentiated quadratic with \sigma=1"""
+                    # L2 distance (Squared Euclidian)
+                    sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
+                    return np.exp(sq_norm)
 
-                    X = np.expand_dims(s, 1)
-                    cov = exponentiated_quadratic(X, X)
+                X = np.expand_dims(s, 1)
+                sigma11=exponentiated_quadratic(X, X)
+                sigma22=exponentiated_quadratic(X, X)
+                sigma12=self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
+                sigma21=self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
 
-                    ee = np.random.multivariate_normal(
-                        mean=np.zeros(sizeX), cov=cov,
-                        size=2
-                    )
-                return ee
-            vu_values = vuMatrix()
-            ee_values = eeMatrix()
-            return vu_values+ee_values
-
-
-
-
+            sigma_top = np.hstack((sigma11,sigma12))
+            sigma_bot = np.hstack((sigma21,sigma22))
+            sigma = np.vstack((sigma_top,sigma_bot))
+            return sigma
 
         sizeX = np.random.choice(range(*self.num_context_range), size=1, replace=True)
         if dense == True:
@@ -462,13 +225,18 @@ class DeterministicLotkaVolterraData(Dataset):
             s[0] = 0
             for sik in range(1, len(s)):
                 s[sik] = round(s[sik - 1] + s[sik],2)
-        X_true = odeint(dX_dt, X_0, s)
 
-        X_obs = X_true + error(vusim,eesim)
+        X_true = odeint(dX_dt, X_0, s)
 
         if dense == True:
             return s, X_true
         else:
+            sigmaMatrix = error_cov(sizeX=len(X_true),scenario=self.scenario)
+            meanVector = np.zeros(2 * len(X_true))
+
+            error = np.random.multivariate_normal(meanVector, sigmaMatrix, 1).reshape((2,-1)).T
+            X_obs = X_true + error
+
             return s, X_obs, X_true
 
     def Outcome(self, s, X_true):
@@ -521,13 +289,13 @@ class DeterministicLotkaVolterraData(Dataset):
     def __len__(self):
         return self.num_samples
 
-#
+
 # if __name__ == "__main__":
 #     sdense = np.linspace(0, 15, 100)
-#
-#     datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,x1x2Ind=False,
-#                                               num_samples=5, sd_u=1., sd_v=1.,rho=0.8, sd=0., sd_y=0., end_time=40)
-#     # print(datasets[0][1])
+# 
+#     datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
+#                                               num_samples=5, sd_u=0.3, sd_v=0.3,rho=0.9, scenario='simA', sd=0., sd_y=0.)
+# #     # print(datasets[0][1])
 #     for i in range(5):
 #         timeS, x_obsS, x_trueS = datasets[i][1]
 #         time,x_true = datasets[i][0]
