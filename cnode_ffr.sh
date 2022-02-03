@@ -9,13 +9,13 @@ module load python/3.6.8
 
 echo Run simulation
 python -m main.main \
-  --exp_name test_b \
-  --scenario simA \
+  --exp_name test_b2 \
+  --scenario simB2 \
   --sd_u 0.3 \
   --sd_v 0.3 \
   --rho 0.9 \
   --h_dim 32 \
-  --epochs 2000 \
+  --epochs 2001e \
   --rep 1 \
   --outdir $OUTDIR \
 

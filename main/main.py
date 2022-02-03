@@ -6,7 +6,7 @@ import torch
 import time
 
 from models.NODEmodels import *
-from data.dataset_ import DeterministicLotkaVolterraData
+from data.dataset import DeterministicLotkaVolterraData
 from models.utils import PredData
 from torch.utils.data import DataLoader
 from models.utils import ObservedData as od
@@ -22,7 +22,7 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--exp_name', type=str, required=True)
 
 parser.add_argument('--model', type=str, choices=['vnode'], default='vnode')
-parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2a','simB2b'],default='simA') # simulation senario
+parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2'],default='simA') # simulation senario
 parser.add_argument('--sd', type=float, default=0.) # sd for i.i.d. random error
 parser.add_argument('--sd_v', type=float, default=0.) # sd for error of X1
 parser.add_argument('--sd_u', type=float, default=0.) # sd for error of X2
