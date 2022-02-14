@@ -4,10 +4,11 @@ import os.path as osp
 import json
 import torch
 import time
+from tqdm import tqdm
 
 from models.NODEmodels import *
 from data.dataset import DeterministicLotkaVolterraData
-from models.utils import PredData
+# from models.utils import PredData
 from torch.utils.data import DataLoader
 from models.utils import ObservedData as od
 
@@ -23,11 +24,11 @@ parser.add_argument('--exp_name', type=str, required=True)
 
 parser.add_argument('--model', type=str, choices=['vnode'], default='vnode')
 parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2'],default='simA') # simulation senario
-parser.add_argument('--sd', type=float, default=0.) # sd for i.i.d. random error
 parser.add_argument('--sd_v', type=float, default=0.) # sd for error of X1
 parser.add_argument('--sd_u', type=float, default=0.) # sd for error of X2
 parser.add_argument('--rho', type=float, default=0.)  # correlation coefficient when X1, X2 not ind.
-parser.add_argument('--lambdaX', type=float, default=2.) # lambda for duration of follow up of X: exp(\lambda)
+parser.add_argument('--lambdaX1', type=float, default=2.) # lambda for duration of follow up of X: exp(\lambda)
+parser.add_argument('--lambdaX2', type=float, default=2.) # lambda for duration of follow up of X: exp(\lambda)
 
 parser.add_argument('--data', type=str, choices=['deterministic_lv'], default='deterministic_lv')
 parser.add_argument('--h_dim', type=int, default=32)
@@ -36,7 +37,11 @@ parser.add_argument('--h_dim', type=int, default=32)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--rep', type=int, default=5)
 parser.add_argument('--num_samples', type=int, default=300)
-parser.add_argument('--stInd', type=eval, choices=[True, False], default=True)
+
+parser.add_argument('--ts_equal',type=eval, choices=[True, False], default=False)
+parser.add_argument('--num_obs_x1',type=int,default=5)
+parser.add_argument('--num_obs_x2',type=int,default=9)
+
 parser.add_argument('--load', type=eval, choices=[True, False], default=False)
 parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/thindrives/Dissertation/node_ffr-main/results')
 args = parser.parse_args()
@@ -49,9 +54,11 @@ def run(device,seed):
     if args.data == 'deterministic_lv':
         sdense = np.linspace(0, 15, 100)
         dataset = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10,
-                                                num_samples=args.num_samples, scenario=args.scenario, sd=args.sd, sd_u=args.sd_u,
-                                                sd_v=args.sd_v, rho=args.rho, lambdaX=args.lambdaX, sdense=sdense,
-                                                num_context_range=(5, 6),seed=seed)
+                                                num_samples=args.num_samples, scenario=args.scenario,sd_u=args.sd_u,
+                                                sd_v=args.sd_v, rho=args.rho, lambdaX1=args.lambdaX1,
+                                                lambdaX2=args.lambdaX2,sdense=sdense,
+                                                ts_equal=args.ts_equal,
+                                                num_obs_x1=args.num_obs_x1,num_obs_x2=args.num_obs_x2,seed=seed)
     x_dim = 1
     y_dim = 2
 
@@ -73,8 +80,10 @@ def run(device,seed):
     # batch_size = 100
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.Adam(func.parameters(), lr=1e-3)
-    trainer = Trainer(device, func, optimizer, folder,seed)
+    optimizer = torch.optim.Adam(func.parameters(), lr=1e-2)
+    sim=True
+    ts_equal = args.ts_equal
+    trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed)
 
     print('Training...')
     start_time = time.time()
@@ -88,9 +97,39 @@ def run(device,seed):
 
     torch.save(func, osp.join(folder, ('trained_model_'+str(seed)+'.pth')))
 
-    Sfull, predX_full = PredData(device,func, 1., 1.,timepoint=sdense)
-    predX_full=predX_full.to(device)
-    Sfull=Sfull.to(device)
+    if args.ts_equal==True:
+        for i, data in enumerate(tqdm(data_loader)):
+            t, x_obs, x_true = data[:][1]
+            t = t.to(device)
+            x_obs = x_obs.to(device)
+            x_true = x_true.to(device)
+
+            sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true)
+            x0 = sort_x_obs[0].to(device)
+    else:
+        for i, data in enumerate(tqdm(data_loader)):
+            t1, t2, x1_obs, x2_obs, x1_true, x2_true = data[:][1]
+            t1 = t1.to(device)
+            t2 = t2.to(device)
+
+            x1_obs = x1_obs.to(device)
+            x2_obs = x2_obs.to(device)
+
+            x1_true = x1_true.to(device)
+            x2_true = x2_true.to(device)
+
+            sort_t1, sort_x1_obs, sort_x1_true = od(t1, x1_obs, x1_true)
+            sort_t2, sort_x2_obs, sort_x2_true = od(t2, x2_obs, x2_true)
+
+            # sort_t12, counts = torch.unique(sort_t1.extend(sort_t2), sorted=True, return_counts=True)
+
+            x0 = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]]).to(device)
+
+    predX_full = odeint(func, x0, torch.tensor(sdense)).to(device)
+
+    # Sfull, predX_full = PredData(device,func, 1., 1.,timepoint=sdense)
+    # predX_full=predX_full.to(device)
+    # Sfull=Sfull.to(device)
     return predX_full
 
 def iteration(device,iter):
@@ -118,8 +157,8 @@ def outputPlot():
     # plot predicted X values
     predX = np.load(folder + '/predX.npy', allow_pickle=True)
     for i in range(len(predX)):
-        plt.plot(time.numpy(),predX[i][:, 0].cpu().detach().numpy(),c='#6E8B3D',linewidth=0.5)
-        plt.plot(time.numpy(),predX[i][:, 1].cpu().detach().numpy(),c='#8B8378',linewidth=0.5)
+        plt.plot(time.numpy(),predX[i][:, 0].cpu().detach().numpy(),c='#6E8B3D',linewidth=0.3,alpha=0.4)
+        plt.plot(time.numpy(),predX[i][:, 1].cpu().detach().numpy(),c='#8B8378',linewidth=0.3,alpha=0.4)
 
     # plt.show()
     plt.savefig(folder + "/outputPlot" )

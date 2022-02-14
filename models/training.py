@@ -30,15 +30,18 @@ class Trainer:
     """
 
     def __init__(self,
+                 sim,
                  device: torch.device,
+                 ts_equal,
                  ODEFunc,
                  optimizer: torch.optim.Optimizer,
                  folder,
                  seed
                  ):
+        self.sim = sim
         self.device = device
         self.optimizer = optimizer
-        self.sim = True
+        self.ts_equal=ts_equal
         self.ODEFunc = ODEFunc
         self.epoch_loss_history = []
         self.folder = folder
@@ -72,43 +75,87 @@ class Trainer:
             self.optimizer.zero_grad()
 
             # Extract data
-            if self.sim:
-                x, yobs, ytrue = data[:][1]
-                x=x.to(self.device)
-                yobs=yobs.to(self.device)
-                ytrue=ytrue.to(self.device)
-                sortX, sortYobs, sortYtrue = od(x, yobs, ytrue)
-                y0 = sortYobs[0].to(self.device)
-                sortX=sortX.to(self.device)
-                sortYobs=sortYobs.to(self.device)
-                sortYtrue=sortYtrue.to(self.device)
-                pred_y = odeint(self.ODEFunc, y0, sortX).to(self.device)
+            if self.sim==True and self.ts_equal==True:
+                t, x_obs, x_true = data[:][1]
+                t=t.to(self.device)
+                x_obs=x_obs.to(self.device)
+                x_true=x_true.to(self.device)
+                sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true)
+                x0 = sort_x_obs[0].to(self.device)
+                sort_t=sort_t.to(self.device)
+                sort_x_obs=sort_x_obs.to(self.device)
 
-                loss = torch.mean(torch.square(pred_y - sortYobs))
+                pred_x = odeint(self.ODEFunc, x0, sort_t).to(self.device)
+
+                loss = torch.mean(torch.square(pred_x - sort_x_obs))
                 loss.backward()
                 self.optimizer.step()
 
                 # mse = ((sortYobs - pred_y.mean)**2).mean()
                 epoch_loss += loss.cpu().item()
+            elif self.sim==True and self.ts_equal==False:
+                t1,t2,x1_obs,x2_obs,x1_true,x2_true= data[:][1]
+                t1=t1.to(self.device)
+                t2=t2.to(self.device)
+
+                x1_obs=x1_obs.to(self.device)
+                x2_obs=x2_obs.to(self.device)
+
+                x1_true=x1_true.to(self.device)
+                x2_true=x2_true.to(self.device)
+
+                sort_t1, sort_x1_obs, sort_x1_true = od(t1, x1_obs, x1_true)
+                sort_t2, sort_x2_obs, sort_x2_true = od(t2, x2_obs, x2_true)
+
+                # sort_t12, counts = torch.unique(sort_t1.extend(sort_t2), sorted=True, return_counts=True)
+
+                x0 = torch.tensor([sort_x1_obs[0],sort_x2_obs[0]]).to(self.device)
+                # sort_t12=sort_t12.to(self.device)
+                sort_t1 = sort_t1.to(self.device)
+                sort_t2 = sort_t2.to(self.device)
+                sort_x1_obs=sort_x1_obs.to(self.device)
+                sort_x2_obs=sort_x2_obs.to(self.device)
+
+                pred_x1 = torch.unsqueeze(odeint(self.ODEFunc, x0, sort_t1).to(self.device)[:,0],1)
+
+                pred_x2 = torch.unsqueeze(odeint(self.ODEFunc, x0, sort_t2).to(self.device)[:,1],1)
+
+                loss_x1 = torch.mean(torch.square(pred_x1 - sort_x1_obs))
+                loss_x2 = torch.mean(torch.square(pred_x2 - sort_x2_obs))
+                loss = torch.mean(torch.stack([loss_x1,loss_x2]))
+                loss.backward()
+                self.optimizer.step()
+
+                # mse = ((sortYobs - pred_y.mean)**2).mean()
+                epoch_loss += loss.cpu().item()
+
             # plot checking
             if epoch % 500 == 0:
                 # full time points
                 Xfull, trueYfull = data[:][0]
                 Xfull=Xfull.to(self.device)
                 trueYfull=trueYfull.to(self.device)
-                y0true = trueYfull[0, 0, :]
-                pred_full = odeint(self.ODEFunc, y0true, Xfull[0, :])
+                # y0true = trueYfull[0, 0, :]
+                pred_full = odeint(self.ODEFunc, x0, Xfull[0, :])
 
                 plt.figure()
                 # full true curve
-                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 0], label="Rabbit")
-                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 1], label='Fox')
+                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 0], label="X1_true",c='r')
+                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 1], label='X2_true',c='g')
                 # full prediction curve
-                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 0], label="Rabbit_pred")
-                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 1], label="Fox_pred")
+                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 0],label="X1_pred",c='orange')
+                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 1],label="X2_pred",c='c')
                 # observed data with noise
-                plt.scatter(sortX.cpu().numpy(), sortYobs.cpu().numpy()[:, 0], marker='x', c='#7AC5CD')
-                plt.scatter(sortX.cpu().numpy(), sortYobs.cpu().numpy()[:, 1], marker='x', c='#C1CDCD')
+                if self.ts_equal == True:
+                    plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:,:,0], marker='x', c='#7AC5CD',alpha=0.7)
+                    plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:,:,1], marker='x', c='#C1CDCD',alpha=0.7)
+                    plt.scatter(t.cpu().numpy()[0,:], x_obs.cpu().numpy()[0,:,0], color="none", edgecolor='r',s=20)
+                    plt.scatter(t.cpu().numpy()[0,:], x_obs.cpu().numpy()[0,:,1], color="none", edgecolor='g',s=13)
+                else:
+                    plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#7AC5CD',alpha=0.7)
+                    plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#C1CDCD',alpha=0.7)
+                    plt.scatter(t1.cpu().numpy()[0,:], x1_obs.cpu().numpy()[0,:], color="none",s=20, edgecolor='r')
+                    plt.scatter(t2.cpu().numpy()[0,:], x2_obs.cpu().numpy()[0,:], color="none", s=13,edgecolor='g')
 
                 plt.legend()
                 plt.savefig(self.folder + "/plot" +str(seed)+'_'+ str(epoch))
