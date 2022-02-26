@@ -2,12 +2,12 @@ import argparse
 import os
 import os.path as osp
 import json
-import torch
-import time
 from tqdm import tqdm
 
 from models.NODEmodels import *
 from data.dataset import DeterministicLotkaVolterraData
+from models.training import Trainer
+
 # from models.utils import PredData
 from torch.utils.data import DataLoader
 from models.utils import ObservedData as od
@@ -15,7 +15,7 @@ from models.utils import ObservedData as od
 from joblib import Parallel, delayed
 import multiprocessing
 import time
-
+from models.eval import final_eval
 import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
@@ -66,6 +66,7 @@ def run(device,seed):
     if args.model == 'vnode':
         h_dim = args.h_dim
         func = VanillaODEFunc(x_dim, h_dim, y_dim).to(device)
+        func_initial=VanillaODEFunc(x_dim, 2, y_dim).to(device)
 
     if args.load:
         func = torch.load(osp.join(folder, 'trained_model.pth')).to(device)
@@ -73,8 +74,6 @@ def run(device,seed):
         torch.save(func, osp.join(folder, 'untrained_model.pth'))
 
     # training
-    from torch.utils.data import DataLoader
-    from models.training import Trainer
 
     batch_size = args.num_samples
     # batch_size = 100
@@ -166,7 +165,7 @@ def outputPlot():
 if __name__ == "__main__":
     # Make folder
     whole_start_time = time.time()
-    folder = osp.join(args.outdir,'results', args.data, args.model, args.exp_name)
+    folder = osp.join(args.outdir,'results/formal_sim', args.scenario, args.exp_name)
     print(folder)
     if not osp.exists(folder):
         os.makedirs(folder)
@@ -179,6 +178,7 @@ if __name__ == "__main__":
     print(device)
     iteration(device,args.rep)
     outputPlot()
+    final_eval(folder)
     whole_end_time = time.time()
     print('Replication total time = ' + str(whole_end_time - whole_start_time))
 
