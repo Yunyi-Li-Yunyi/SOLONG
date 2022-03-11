@@ -196,15 +196,30 @@ class DeterministicLotkaVolterraData(Dataset):
             # sim C:
             elif scenario=='simC':
                 # print("Sim C")
-                sigma11=self.sd_v**2*np.ones((sizeX,sizeX))
-                sigma22=self.sd_u**2*np.ones((sizeX,sizeX))
-                sigma12=self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
-                sigma21=self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
+                def ar1_corr(n,rho):
+                    exponent=abs(np.repeat(np.arange(n),n,axis=0).reshape(n,n)-np.arange(n))
+                    return rho**exponent
+
+                # sigma11=self.sd_v**2*np.ones((sizeX1,sizeX1))
+                # sigma22=self.sd_u**2*np.ones((sizeX2,sizeX2))
+                corr11=ar1_corr(sizeX,self.rho)
+                sigma11=self.sd_v**2*corr11
+                corr22=ar1_corr(sizeX,self.rho)
+                sigma22=self.sd_u**2*corr22
+
+                # sigma11=self.sd_v**2*np.ones((sizeX,sizeX))
+                # sigma22=self.sd_u**2*np.ones((sizeX,sizeX))
+                sigma12=2*self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
+                sigma21=2*self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
+                # sigma12=np.identity(sizeX)
+                # sigma21=np.identity(sizeX)
 
             sigma_top = np.hstack((sigma11,sigma12))
             sigma_bot = np.hstack((sigma21,sigma22))
             sigma = np.vstack((sigma_top,sigma_bot))
+            # print(sigma)
             return sigma
+
         assert self.num_obs_x1==self.num_obs_x2, "number of observations of X1 and X2 are not equal!"
         # sizeX = np.random.choice(range(*self.num_obs_x1), size=1, replace=True)
         sizeX=self.num_obs_x1
@@ -216,7 +231,6 @@ class DeterministicLotkaVolterraData(Dataset):
             s[0] = 0
             for sik in range(1, len(s)):
                 s[sik] = round(s[sik - 1] + s[sik],2)
-
         X_true = odeint(dX_dt, X_0, s)
 
         if dense == True:
@@ -283,16 +297,29 @@ class DeterministicLotkaVolterraData(Dataset):
                 sigma21 =self.sd_u*self.sd_v*exponentiated_quadratic(X2, X1)
 
             # sim C:
-            elif scenario=='simC':
-                # print("Sim C")
-                sigma11=self.sd_v**2*np.ones((sizeX1,sizeX1))
-                sigma22=self.sd_u**2*np.ones((sizeX2,sizeX2))
-                sigma12=self.rho*self.sd_v*self.sd_u*np.identity(sizeX1)
-                sigma21=self.rho*self.sd_v*self.sd_u*np.identity(sizeX2)
+            # elif scenario=='simC':
+            #     # print("Sim C")
+            #     def ar1_corr(n,rho):
+            #         exponent=abs(np.repeat(np.arange(n),n,axis=0).reshape(n,n)-np.arange(n))
+            #         return rho**exponent
+            #
+            #     # sigma11=self.sd_v**2*np.ones((sizeX1,sizeX1))
+            #     # sigma22=self.sd_u**2*np.ones((sizeX2,sizeX2))
+            #     corr11=ar1_corr(sizeX1,self.rho)
+            #     sigma11=self.sd_v**2*corr11
+            #     print(sigma11)
+            #     corr22=ar1_corr(sizeX2,self.rho)
+            #     sigma22=self.sd_u**2*corr22
+            #     print(sigma22)
+            #     sigma12=self.rho*self.sd_v*self.sd_u*np.identity(sizeX1)
+            #     print(sigma12)
+            #     sigma21=self.rho*self.sd_v*self.sd_u*np.identity(sizeX2)
+            #     print(sigma21)
 
             sigma_top = np.hstack((sigma11,sigma12))
             sigma_bot = np.hstack((sigma21,sigma22))
             sigma = np.vstack((sigma_top,sigma_bot))
+            # print(sigma)
             return sigma
 
         # sizeX1 = np.random.choice(range(*self.num_obs_x1), size=1, replace=True)
@@ -308,13 +335,15 @@ class DeterministicLotkaVolterraData(Dataset):
         else:
             s1 = np.random.exponential(self.lambdaX1, sizeX1)
             s2 = np.random.exponential(self.lambdaX2, sizeX2)
+            # print(s1)
+            # print(s2)
+
             s1[0] = 0
             for sik in range(1, len(s1)):
                 s1[sik] = round(s1[sik - 1] + s1[sik],2)
             s2[0] = 0
             for sik in range(1, len(s2)):
                 s2[sik] = round(s2[sik - 1] + s2[sik],2)
-
             X1_true = odeint(dX_dt,X_0,s1)[:,0]
             X2_true = odeint(dX_dt,X_0,s2)[:,1]
 
@@ -377,13 +406,13 @@ class DeterministicLotkaVolterraData(Dataset):
     def __len__(self):
         return self.num_samples
 
-#
-# if __name__ == "__main__":
-#     sdense = np.linspace(0, 15, 100)
-#
-#     datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
-#                                               num_samples=2, sd_u=0.3, sd_v=0.5,rho=0.9, scenario='simB2',
-#                                               num_obs_x1=(3,4), num_obs_x2=(3,4),ts_equal=False,sd_y=0.)
+
+if __name__ == "__main__":
+    sdense = np.linspace(0, 15, 100)
+
+    datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
+                                              num_samples=1, sd_u=1., sd_v=1.,rho=0.2, scenario='simC',
+                                              num_obs_x1=4, num_obs_x2=4,ts_equal=True,sd_y=0.)
 #     t1, t2, x1_obs, x2_obs, x1_true, x2_true = datasets[0][1]
 #     t,x_obs,x_true = datasets[0][1]
 #     print(x1_obs)

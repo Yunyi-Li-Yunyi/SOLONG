@@ -26,6 +26,8 @@ class adniData(Dataset):
             checklist=['AD','EMCI','LMCI']
         elif self.group=='PureAD':
             checklist=['AD']
+        elif self.group=='ALL':
+            checklist=['AD','EMCI','LMCI','SMC']
         av45_valid = self.adni[(np.isnan(self.adni.AV45) == 0)
                                & (np.isnan(self.adni.ageScaled) == 0)]
                                # & ((self.adni['DX.bl'] =='CN')|(self.adni['DX.bl'] =='SMC'))]
@@ -68,11 +70,12 @@ func = None
 func = VanillaODEFunc(x_dim, h_dim, y_dim)
 
 optimizer = torch.optim.Adam(func.parameters(), lr=1e-2)
-dataset = adniData('../data/adni_tau_amyloid.csv',"PureAD")
+dataset = adniData('../data/adni_tau_amyloid.csv',"ALL")
+
 data_loader = DataLoader(dataset)
 sim=False
 ts_equal=False
-folder='../results/adniFit_PureAD/'
+folder='../results/adni/adniFit_ALL/'
 if not osp.exists(folder):
     os.makedirs(folder)
 seed=0
@@ -81,4 +84,8 @@ trainer = Trainer(sim, device, ts_equal, func, optimizer, folder, seed)
 print('Training...')
 start_time = time.time()
 trainer.train(data_loader, 501, seed)
+torch.save(func, osp.join(folder, ('trained_model_' + str(seed) + '.pth')))
 end_time = time.time()
+
+func = torch.load(osp.join(folder, 'trained_model.pth')).to(device)
+

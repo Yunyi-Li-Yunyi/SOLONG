@@ -35,7 +35,9 @@ parser.add_argument('--h_dim', type=int, default=32)
 # parser.add_argument('--batch_size', type=int, default=66)
 
 parser.add_argument('--epochs', type=int, default=100)
-parser.add_argument('--rep', type=int, default=5)
+parser.add_argument('--iter_start', type=int, default=0)
+parser.add_argument('--iter_end', type=int, default=0)
+
 parser.add_argument('--num_samples', type=int, default=300)
 
 parser.add_argument('--ts_equal',type=eval, choices=[True, False], default=False)
@@ -66,10 +68,9 @@ def run(device,seed):
     if args.model == 'vnode':
         h_dim = args.h_dim
         func = VanillaODEFunc(x_dim, h_dim, y_dim).to(device)
-        func_initial=VanillaODEFunc(x_dim, 2, y_dim).to(device)
 
     if args.load:
-        func = torch.load(osp.join(folder, 'trained_model.pth')).to(device)
+        func = torch.load(osp.join(folder, 'trained_model_'+str(seed)+'.pth')).to(device)
     else:
         torch.save(func, osp.join(folder, 'untrained_model.pth'))
 
@@ -79,7 +80,7 @@ def run(device,seed):
     # batch_size = 100
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.Adam(func.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(func.parameters(), lr=1e-3)
     sim=True
     ts_equal = args.ts_equal
     trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed)
@@ -90,8 +91,8 @@ def run(device,seed):
     end_time = time.time()
     print('Total time = ' + str(end_time - start_time))
 
-    np.save(osp.join(folder, ('loss_history_'+str(seed)+'.npy')), np.array(trainer.epoch_loss_history))
-    np.save(osp.join(folder, ('training_time_'+str(seed)+'.npy')), np.array([end_time - start_time]))
+    # np.save(osp.join(folder, ('loss_history_'+str(seed)+'.npy')), np.array(trainer.epoch_loss_history))
+    # np.save(osp.join(folder, ('training_time_'+str(seed)+'.npy')), np.array([end_time - start_time]))
     np.save(osp.join(folder, ('Data_'+str(seed)+'.npy')), dataset,allow_pickle=True)
 
     torch.save(func, osp.join(folder, ('trained_model_'+str(seed)+'.pth')))
@@ -125,15 +126,17 @@ def run(device,seed):
             x0 = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]]).to(device)
 
     predX_full = odeint(func, x0, torch.tensor(sdense)).to(device)
+    np.save(osp.join(folder, 'predX_'+str(seed)+'.npy'), predX_full.detach().numpy(),allow_pickle=True)
+
 
     # Sfull, predX_full = PredData(device,func, 1., 1.,timepoint=sdense)
     # predX_full=predX_full.to(device)
     # Sfull=Sfull.to(device)
     return predX_full
 
-def iteration(device,iter):
+def iteration(device,iter_start,iter_end):
     predX = []
-    rep = range(iter)
+    rep = range(iter_start,iter_end)
     num_cores = multiprocessing.cpu_count()
     print('num_cores:' + str(num_cores))
     predX=Parallel(n_jobs=num_cores)(delayed(run)(device,i) for i in rep)
@@ -167,6 +170,7 @@ if __name__ == "__main__":
     whole_start_time = time.time()
     folder = osp.join(args.outdir,'results/formal_sim', args.scenario, args.exp_name)
     print(folder)
+
     if not osp.exists(folder):
         os.makedirs(folder)
 
@@ -176,9 +180,9 @@ if __name__ == "__main__":
     # set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
-    iteration(device,args.rep)
+    iteration(device,args.iter_start,args.iter_end)
     outputPlot()
-    final_eval(folder)
+    final_eval(folder,args.iter_end)
     whole_end_time = time.time()
     print('Replication total time = ' + str(whole_end_time - whole_start_time))
 

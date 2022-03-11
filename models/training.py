@@ -136,35 +136,35 @@ class Trainer:
                 epoch_loss += loss.cpu().item()
 
             # plot checking
-            if epoch % 500 == 0:
-                # full time points
-                Xfull, trueYfull = data[:][0]
-                Xfull = Xfull.to(self.device)
-                trueYfull = trueYfull.to(self.device)
-                # y0true = trueYfull[0, 0, :]
-                pred_full = odeint(self.ODEFunc, x0, Xfull[0, :])
-
-                plt.figure()
-                # full true curve
-                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 0], label="X1_true", c='r')
-                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 1], label='X2_true', c='g')
-                # full prediction curve
-                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 0], label="X1_pred", c='orange')
-                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 1], label="X2_pred", c='c')
-                # observed data with noise
-                if self.ts_equal == True:
-                    plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 0], marker='x', c='#7AC5CD', alpha=0.7)
-                    plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 1], marker='x', c='#C1CDCD', alpha=0.7)
-                    plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 0], color="none", edgecolor='r', s=20)
-                    plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 1], color="none", edgecolor='g', s=13)
-                else:
-                    plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#7AC5CD', alpha=0.7)
-                    plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#C1CDCD', alpha=0.7)
-                    plt.scatter(t1.cpu().numpy()[0, :], x1_obs.cpu().numpy()[0, :], color="none", s=20, edgecolor='r')
-                    plt.scatter(t2.cpu().numpy()[0, :], x2_obs.cpu().numpy()[0, :], color="none", s=13, edgecolor='g')
-
-                plt.legend()
-                plt.savefig(self.folder + "/plot" + str(seed) + '_' + str(epoch))
+            # if epoch % 500 == 0:
+            #     # full time points
+            #     Xfull, trueYfull = data[:][0]
+            #     Xfull = Xfull.to(self.device)
+            #     trueYfull = trueYfull.to(self.device)
+            #     # y0true = trueYfull[0, 0, :]
+            #     pred_full = odeint(self.ODEFunc, x0, Xfull[0, :])
+            #
+            #     plt.figure()
+            #     # full true curve
+            #     plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 0], label="X1_true", c='r')
+            #     plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 1], label='X2_true', c='g')
+            #     # full prediction curve
+            #     plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 0], label="X1_pred", c='orange')
+            #     plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 1], label="X2_pred", c='c')
+            #     # observed data with noise
+            #     if self.ts_equal == True:
+            #         plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 0], marker='x', c='#7AC5CD', alpha=0.7)
+            #         plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 1], marker='x', c='#C1CDCD', alpha=0.7)
+            #         plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 0], color="none", edgecolor='r', s=20)
+            #         plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 1], color="none", edgecolor='g', s=13)
+            #     else:
+            #         plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#7AC5CD', alpha=0.7)
+            #         plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#C1CDCD', alpha=0.7)
+            #         plt.scatter(t1.cpu().numpy()[0, :], x1_obs.cpu().numpy()[0, :], color="none", s=20, edgecolor='r')
+            #         plt.scatter(t2.cpu().numpy()[0, :], x2_obs.cpu().numpy()[0, :], color="none", s=13, edgecolor='g')
+            #
+            #     plt.legend()
+            #     plt.savefig(self.folder + "/plot" + str(seed) + '_' + str(epoch))epoch
         print(epoch_loss)
         return epoch_loss
 
