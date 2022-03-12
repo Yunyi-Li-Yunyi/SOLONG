@@ -17,12 +17,21 @@ def final_eval(folder,iter_end):
     predX_all=torch.tensor(np.array(predX))
 
     bias_total=torch.mean(torch.mean(torch.abs(predX_all-x_true),0),0)
-    var_total=torch.mean(torch.mean(torch.square(predX_all-x_true),0),0)
+    mse_total=torch.mean(torch.mean(torch.square(predX_all-x_true),0),0)
+    # the output before 11Mar2022 was used var_total named mse_total
+    var_total=torch.mean(torch.var(predX_all,0),0)
+    print(bias_total)
+    print(mse_total)
+    print(var_total)
+
     np.savetxt(osp.join(folder, ('biasTotal.txt')), bias_total.detach().numpy())
+    np.savetxt(osp.join(folder, ('mseTotal.txt')), mse_total.detach().numpy())
     np.savetxt(osp.join(folder, ('varsTotal.txt')), var_total.detach().numpy())
 
     empirical_mean=torch.mean(predX_all,0)
+    print(torch.mean(empirical_mean,0))
     empirical_sd=torch.std(predX_all,0)
+    print(torch.mean(empirical_sd**2,0))
 
     # empirical_sd = torch.sqrt(torch.mean(torch.square(predX_-empirical_mean),0))
 
@@ -68,7 +77,7 @@ def final_eval(folder,iter_end):
     print('evaluation done!')
 
 # if __name__ == "__main__":
-#     folder = '/N/u/liyuny/Quartz/cnode_ffr_main/results/formal_sim/simA/300_0.3_10_10'
+#     folder = '/N/u/liyuny/Quartz/cnode_ffr_main/results/formal_sim/simA/100_0.3_10_False'
 #     final_eval(folder,1000)
 # plt.figure()
 # plt.plot(time.numpy(), x_true.numpy()[:, 0],label='True X1')

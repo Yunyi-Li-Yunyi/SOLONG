@@ -171,17 +171,17 @@ if __name__ == "__main__":
     folder = osp.join(args.outdir,'results/formal_sim', args.scenario, args.exp_name)
     print(folder)
 
-    if not osp.exists(folder):
-        os.makedirs(folder)
-
+    # if not osp.exists(folder):
+    #     os.makedirs(folder)
+    #
     with open(osp.join(folder, 'args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
     # set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
-    iteration(device,args.iter_start,args.iter_end)
-    outputPlot()
+    # iteration(device,args.iter_start,args.iter_end)
+    # outputPlot()
     final_eval(folder,args.iter_end)
     whole_end_time = time.time()
     print('Replication total time = ' + str(whole_end_time - whole_start_time))
