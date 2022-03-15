@@ -80,7 +80,7 @@ if not osp.exists(folder):
     os.makedirs(folder)
 seed=0
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-trainer = Trainer(sim, device, ts_equal, func, optimizer, folder, seed)
+trainer = Trainer(sim, device, ts_equal, func, optimizer, folder, seed,True)
 print('Training...')
 start_time = time.time()
 trainer.train(data_loader, 501, seed)

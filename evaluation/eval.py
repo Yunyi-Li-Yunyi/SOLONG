@@ -18,7 +18,6 @@ def final_eval(folder,iter_end):
 
     bias_total=torch.mean(torch.mean(torch.abs(predX_all-x_true),0),0)
     mse_total=torch.mean(torch.mean(torch.square(predX_all-x_true),0),0)
-    # the output before 11Mar2022 was used var_total named mse_total
     var_total=torch.mean(torch.var(predX_all,0),0)
     print(bias_total)
     print(mse_total)

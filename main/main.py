@@ -15,8 +15,9 @@ from models.utils import ObservedData as od
 from joblib import Parallel, delayed
 import multiprocessing
 import time
-from models.eval import final_eval
+from evaluation.eval import final_eval
 import matplotlib.pyplot as plt
+from evaluation.obsPercent import obsPercent as op
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0)
@@ -27,8 +28,8 @@ parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2
 parser.add_argument('--sd_v', type=float, default=0.) # sd for error of X1
 parser.add_argument('--sd_u', type=float, default=0.) # sd for error of X2
 parser.add_argument('--rho', type=float, default=0.)  # correlation coefficient when X1, X2 not ind.
-parser.add_argument('--lambdaX1', type=float, default=2.) # lambda for duration of follow up of X: exp(\lambda)
-parser.add_argument('--lambdaX2', type=float, default=2.) # lambda for duration of follow up of X: exp(\lambda)
+parser.add_argument('--lambdaX1', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
+parser.add_argument('--lambdaX2', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
 
 parser.add_argument('--data', type=str, choices=['deterministic_lv'], default='deterministic_lv')
 parser.add_argument('--h_dim', type=int, default=32)
@@ -43,6 +44,7 @@ parser.add_argument('--num_samples', type=int, default=300)
 parser.add_argument('--ts_equal',type=eval, choices=[True, False], default=False)
 parser.add_argument('--num_obs_x1',type=int,default=5)
 parser.add_argument('--num_obs_x2',type=int,default=9)
+parser.add_argument('--ifplot', type=eval, choices=[True, False], default=False)
 
 parser.add_argument('--load', type=eval, choices=[True, False], default=False)
 parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/thindrives/Dissertation/node_ffr-main/results')
@@ -83,7 +85,7 @@ def run(device,seed):
     optimizer = torch.optim.Adam(func.parameters(), lr=1e-3)
     sim=True
     ts_equal = args.ts_equal
-    trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed)
+    trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed,args.ifplot)
 
     print('Training...')
     start_time = time.time()
@@ -98,7 +100,8 @@ def run(device,seed):
     torch.save(func, osp.join(folder, ('trained_model_'+str(seed)+'.pth')))
 
     if args.ts_equal==True:
-        for i, data in enumerate(tqdm(data_loader)):
+        # for i, data in enumerate(tqdm(data_loader)):
+        for i, data in enumerate(data_loader):
             t, x_obs, x_true = data[:][1]
             t = t.to(device)
             x_obs = x_obs.to(device)
@@ -107,7 +110,8 @@ def run(device,seed):
             sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true)
             x0 = sort_x_obs[0].to(device)
     else:
-        for i, data in enumerate(tqdm(data_loader)):
+        # for i, data in enumerate(tqdm(data_loader)):
+        for i, data in enumerate(data_loader):
             t1, t2, x1_obs, x2_obs, x1_true, x2_true = data[:][1]
             t1 = t1.to(device)
             t2 = t2.to(device)
@@ -168,22 +172,23 @@ def outputPlot():
 if __name__ == "__main__":
     # Make folder
     whole_start_time = time.time()
-    folder = osp.join(args.outdir,'results/formal_sim', args.scenario, args.exp_name)
+    folder = osp.join(args.outdir, args.scenario, args.exp_name)
     print(folder)
 
-    # if not osp.exists(folder):
-    #     os.makedirs(folder)
-    #
+    if not osp.exists(folder):
+        os.makedirs(folder)
+
     with open(osp.join(folder, 'args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
     # set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
-    # iteration(device,args.iter_start,args.iter_end)
-    # outputPlot()
+    iteration(device,args.iter_start,args.iter_end)
+    outputPlot()
     final_eval(folder,args.iter_end)
     whole_end_time = time.time()
+    op(folder,args.iter_end,args.ts_equal)
     print('Replication total time = ' + str(whole_end_time - whole_start_time))
 
 

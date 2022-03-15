@@ -108,7 +108,8 @@ class DeterministicLotkaVolterraData(Dataset):
         np.random.seed(self.seed)
 
 
-        for samples in tqdm(range(self.num_samples)):
+        # for samples in tqdm(range(self.num_samples)):
+        for samples in range(self.num_samples):
             # generate x, states_obs, states_true
             if ts_equal==True:
                 times, states_true = self.generate_ts(dense=True)
