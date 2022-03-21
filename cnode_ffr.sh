@@ -3,12 +3,12 @@
 module load python
 #ROOTDIR=`readlink -f $0 | xargs dirname`/
 ROOTDIR='/N/u/liyuny/Quartz/cnode_ffr_main/'
-OUTDIR='/N/slate/liyuny/cnode_ffr_main'
+OUTDIR='/N/slate/liyuny/test'
 export PYTHONPATH=$PYTHONPATH:$ROOTDIR
 
 echo Run simulation
 echo $PWD
-python -m main.main \
+python -m main.main1 \
   --exp_name test_100_1.0_5_5\
   --scenario simC \
   --ts_equal True \
@@ -19,7 +19,8 @@ python -m main.main \
   --lambdaX2 2. \
   --sd_u 1.0 \
   --sd_v 1.0 \
-  --rho 0.9 \
+  --rho_b 0.1 \
+  --rho_w 0.3 \
   --h_dim 32 \
   --epochs 501 \
   --iter_start 0 \

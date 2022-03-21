@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 from typing import Tuple
 from random import randint
 from models.utils import ObservedData as od
@@ -9,6 +9,7 @@ from torchdiffeq import odeint
 # from torchdiffeq import odeint_adjoint as odeint
 import matplotlib.pyplot as plt
 import time
+import os.path as osp
 
 from joblib import Parallel, delayed
 import multiprocessing
@@ -49,6 +50,8 @@ class Trainer:
         self.folder = folder
         self.seed = seed
         self.ifplot = ifplot
+
+        np.random.seed(self.seed)
 
     def train(self, train_data_loader: DataLoader, epochs: int, seed):
         """
@@ -195,7 +198,13 @@ class Trainer:
 
                 # sort_t12, counts = torch.unique(sort_t1.extend(sort_t2), sorted=True, return_counts=True)
 
-                x0 = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]]).to(self.device)
+                # x0 = torch.tensor([torch.mean(sort_x1_obs), torch.mean(sort_x2_obs)]).to(self.device)
+                # x0_=torch.mean(torch.stack([sort_x1_obs[0:5], sort_x2_obs[0:5]]))
+
+                # x0 = torch.tensor(x0_).to(self.device)
+                # x0 = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]]).to(self.device)
+                x0 = torch.tensor([torch.mean(sort_x1_obs[0:10]), torch.mean(sort_x2_obs[0:10])]).to(self.device)
+
                 # sort_t12=sort_t12.to(self.device)
                 sort_t1 = sort_t1.to(self.device)
                 sort_t2 = sort_t2.to(self.device)
@@ -221,17 +230,19 @@ class Trainer:
                 Xfull = torch.tensor(np.linspace(minT, maxT, 100))
                 # y0true = trueYfull[0, 0, :]
                 pred_full = odeint(self.ODEFunc, x0, Xfull[:])
+                np.save(osp.join(self.folder, 'timeX_' + '.npy'), Xfull.detach().numpy(), allow_pickle=True)
+                np.save(osp.join(self.folder, 'predX_' + str(epoch) + '.npy'), pred_full.detach().numpy(), allow_pickle=True)
 
                 plt.figure()
                 # full prediction curve
-                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 0], label="AV45_pred",
+                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 0], label="X1_pred",
                          c='orange')
-                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 1], label="TAU_pred", c='c')
+                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 1], label="X2_pred", c='c')
                 # observed data with noise
                 plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#7AC5CD', alpha=0.7,
-                            label='AV45')
+                            label='X1')
                 plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#C1CDCD', alpha=0.7,
-                            label='TAU')
+                            label='X2')
                 # plt.scatter(t1.cpu().numpy()[0, :], x1_obs.cpu().numpy()[0, :], color="none", s=20,
                 #             edgecolor='r')
                 # plt.scatter(t2.cpu().numpy()[0, :], x2_obs.cpu().numpy()[0, :], color="none", s=13,

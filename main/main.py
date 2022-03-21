@@ -2,7 +2,7 @@ import argparse
 import os
 import os.path as osp
 import json
-from tqdm import tqdm
+# from tqdm import tqdm
 
 from models.NODEmodels import *
 from data.dataset import DeterministicLotkaVolterraData
@@ -11,11 +11,12 @@ from models.training import Trainer
 # from models.utils import PredData
 from torch.utils.data import DataLoader
 from models.utils import ObservedData as od
+from models.utils import prediction
 
 from joblib import Parallel, delayed
 import multiprocessing
 import time
-from evaluation.eval import final_eval
+from evaluation.eval import final_eval_default
 import matplotlib.pyplot as plt
 from evaluation.obsPercent import obsPercent as op
 
@@ -27,7 +28,9 @@ parser.add_argument('--model', type=str, choices=['vnode'], default='vnode')
 parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2'],default='simA') # simulation senario
 parser.add_argument('--sd_v', type=float, default=0.) # sd for error of X1
 parser.add_argument('--sd_u', type=float, default=0.) # sd for error of X2
-parser.add_argument('--rho', type=float, default=0.)  # correlation coefficient when X1, X2 not ind.
+parser.add_argument('--rho_b', type=float, default=0.)  # correlation coefficient of X1(t), X1(s).
+parser.add_argument('--rho_w', type=float, default=0.)  # correlation coefficient of X1(t), X1(s).
+
 parser.add_argument('--lambdaX1', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
 parser.add_argument('--lambdaX2', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
 
@@ -47,7 +50,7 @@ parser.add_argument('--num_obs_x2',type=int,default=9)
 parser.add_argument('--ifplot', type=eval, choices=[True, False], default=False)
 
 parser.add_argument('--load', type=eval, choices=[True, False], default=False)
-parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/thindrives/Dissertation/node_ffr-main/results')
+parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/results')
 args = parser.parse_args()
 
 def run(device,seed):
@@ -59,7 +62,7 @@ def run(device,seed):
         sdense = np.linspace(0, 15, 100)
         dataset = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10,
                                                 num_samples=args.num_samples, scenario=args.scenario,sd_u=args.sd_u,
-                                                sd_v=args.sd_v, rho=args.rho, lambdaX1=args.lambdaX1,
+                                                sd_v=args.sd_v, rho=args.rho_w, rho_bw=args.rho_b, lambdaX1=args.lambdaX1,
                                                 lambdaX2=args.lambdaX2,sdense=sdense,
                                                 ts_equal=args.ts_equal,
                                                 num_obs_x1=args.num_obs_x1,num_obs_x2=args.num_obs_x2,seed=seed)
@@ -98,52 +101,15 @@ def run(device,seed):
     np.save(osp.join(folder, ('Data_'+str(seed)+'.npy')), dataset,allow_pickle=True)
 
     torch.save(func, osp.join(folder, ('trained_model_'+str(seed)+'.pth')))
+    prediction(args.ts_equal,func,data_loader,sdense,seed,device,folder)
 
-    if args.ts_equal==True:
-        # for i, data in enumerate(tqdm(data_loader)):
-        for i, data in enumerate(data_loader):
-            t, x_obs, x_true = data[:][1]
-            t = t.to(device)
-            x_obs = x_obs.to(device)
-            x_true = x_true.to(device)
-
-            sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true)
-            x0 = sort_x_obs[0].to(device)
-    else:
-        # for i, data in enumerate(tqdm(data_loader)):
-        for i, data in enumerate(data_loader):
-            t1, t2, x1_obs, x2_obs, x1_true, x2_true = data[:][1]
-            t1 = t1.to(device)
-            t2 = t2.to(device)
-
-            x1_obs = x1_obs.to(device)
-            x2_obs = x2_obs.to(device)
-
-            x1_true = x1_true.to(device)
-            x2_true = x2_true.to(device)
-
-            sort_t1, sort_x1_obs, sort_x1_true = od(t1, x1_obs, x1_true)
-            sort_t2, sort_x2_obs, sort_x2_true = od(t2, x2_obs, x2_true)
-
-            # sort_t12, counts = torch.unique(sort_t1.extend(sort_t2), sorted=True, return_counts=True)
-
-            x0 = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]]).to(device)
-
-    predX_full = odeint(func, x0, torch.tensor(sdense)).to(device)
-    np.save(osp.join(folder, 'predX_'+str(seed)+'.npy'), predX_full.detach().numpy(),allow_pickle=True)
-
-
-    # Sfull, predX_full = PredData(device,func, 1., 1.,timepoint=sdense)
-    # predX_full=predX_full.to(device)
-    # Sfull=Sfull.to(device)
-    return predX_full
 
 def iteration(device,iter_start,iter_end):
     predX = []
     rep = range(iter_start,iter_end)
     num_cores = multiprocessing.cpu_count()
     print('num_cores:' + str(num_cores))
-    predX=Parallel(n_jobs=num_cores)(delayed(run)(device,i) for i in rep)
+    predX = Parallel(n_jobs=num_cores)(delayed(run)(device,i) for i in rep)
 
     # for i in range(iter):
     #     print('Iteration number: ' + str(iter))
@@ -170,6 +136,7 @@ def outputPlot():
     plt.savefig(folder + "/outputPlot" )
 
 if __name__ == "__main__":
+    # print(parser.parse_args())
     # Make folder
     whole_start_time = time.time()
     folder = osp.join(args.outdir, args.scenario, args.exp_name)
@@ -186,7 +153,7 @@ if __name__ == "__main__":
     print(device)
     iteration(device,args.iter_start,args.iter_end)
     outputPlot()
-    final_eval(folder,args.iter_end)
+    final_eval_default(folder,args.iter_end)
     whole_end_time = time.time()
     op(folder,args.iter_end,args.ts_equal)
     print('Replication total time = ' + str(whole_end_time - whole_start_time))

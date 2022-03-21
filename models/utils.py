@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 from torchdiffeq import odeint
+import os
+import os.path as osp
 
 def ObservedData(TimesSparse, StatesObsSparse, StatesTrueSparse):
     """
@@ -47,39 +49,37 @@ def ObservedData(TimesSparse, StatesObsSparse, StatesTrueSparse):
 
     return sortX, sortYobs, sortYtrue
 
-#
-# def PredData(device,ODEFunc, initial_u, initial_v, timepoint=None):
-#     """
-#     ODEFunc: nn.Module
-#         deep learning ODE function
-#     initial_u: int
-#         initial value of u
-#     initial_v: int
-#         initial value of v
-#     timepoint: torch.tensor
-#         timepoints at which predictions will be calculated
-#     steps : float
-#         length of interval
-#     end_time : float
-#         the final time (simulation runs from 0 to end_time)
-#
-#     :return:
-#     timepoint, pred
-#     """
-#     # if timepoint == None:
-#     #     x = np.arange(0, end_time, by)
-#     #     x = torch.tensor(x)
-#     # else:
-#     s = torch.tensor(timepoint).to(device)
-#     x0 = torch.tensor([initial_u, initial_v]).to(device)
-#     predX = odeint(ODEFunc, x0, s).to(device)
-#     return s, predX
+def prediction(ts_equal,func,data_loader,sdense,seed,device,folder):
+    if ts_equal==True:
+        # for i, data in enumerate(tqdm(data_loader)):
+        for i, data in enumerate(data_loader):
+            t, x_obs, x_true = data[:][1]
+            t = t.to(device)
+            x_obs = x_obs.to(device)
+            x_true = x_true.to(device)
 
-# if __name__=='__main__':
-#     x = torch.randn(3, 5,1)
-#     y = torch.randn(3, 5,2)
-#     sparseX,sparseYobs, sparseYtrue = SparseData(x,y,y,(3,4))
-#
-#     sortX, sortYobs, sortYtrue = ObservedData(sparseX, sparseYobs,sparseYtrue)
-#     print(sortX)
-#     print(sortYobs)
+            sort_t, sort_x_obs, sort_x_true = ObservedData(t, x_obs, x_true)
+            x0 = sort_x_obs[0].to(device)
+    else:
+        # for i, data in enumerate(tqdm(data_loader)):
+        for i, data in enumerate(data_loader):
+            t1, t2, x1_obs, x2_obs, x1_true, x2_true = data[:][1]
+            t1 = t1.to(device)
+            t2 = t2.to(device)
+
+            x1_obs = x1_obs.to(device)
+            x2_obs = x2_obs.to(device)
+
+            x1_true = x1_true.to(device)
+            x2_true = x2_true.to(device)
+
+            sort_t1, sort_x1_obs, sort_x1_true = ObservedData(t1, x1_obs, x1_true)
+            sort_t2, sort_x2_obs, sort_x2_true = ObservedData(t2, x2_obs, x2_true)
+
+            # sort_t12, counts = torch.unique(sort_t1.extend(sort_t2), sorted=True, return_counts=True)
+
+            x0 = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]]).to(device)
+
+    predX_full = odeint(func, x0, torch.tensor(sdense)).to(device)
+    np.save(osp.join(folder, 'predX_'+str(seed)+'.npy'), predX_full.detach().numpy(),allow_pickle=True)
+    return predX_full

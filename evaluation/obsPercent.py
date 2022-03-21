@@ -12,9 +12,9 @@ def obsPercent(folder,iter_end,ts_equal):
         datasets = np.load(folder + '/Data_'+str(iter)+'.npy', allow_pickle=True)
         for i in range(len(datasets)):
             if ts_equal==True:
-                timseSparse, states_obsSparse, states_trueSparse=datasets[i][1]
-                valid1=valid1+len(timseSparse[timseSparse<=15])
-                total1=total1+len(timseSparse)
+                timeSparse, states_obsSparse, states_trueSparse=datasets[i][1]
+                valid1=valid1+len(timeSparse[timeSparse<=15])
+                total1=total1+len(timeSparse)
             else:
                 t1, t2, x1_obs,x2_obs,x1_true,x2_true = datasets[i][1]
                 # time, x_true = datasets[0][0]

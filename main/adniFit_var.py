@@ -10,42 +10,39 @@ from models.utils import ObservedData as od
 from models.training import Trainer
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--var', type=str)
+parser.add_argument('--data',type=str)
+parser.add_argument('--outdir',type=str)
+parser.add_argument('--epoch',type=int)
+
+args = parser.parse_args()
 
 class adniData(Dataset):
     """read in adni Data ad Dataset"""
-    def __init__(self,csv_file,group):
+    def __init__(self,csv_file):
         self.adni = pd.read_csv(csv_file)
-        # self.root_dir = root_dir
-        # print(self.adni.head())
-        self.adni['ageScaled'] = self.adni['t.age'] - min(self.adni['t.age'])
         self.SparseData=[]
-        self.group=group
-        if self.group=='CN':
-            checklist=['CN','SMC']
-        elif self.group=='AD':
-            checklist=['AD','EMCI','LMCI']
-        elif self.group=='PureAD':
-            checklist=['AD']
-        elif self.group=='ALL':
-            checklist=['AD','EMCI','LMCI','SMC']
-        av45_valid = self.adni[(np.isnan(self.adni.AV45) == 0)
-                               & (np.isnan(self.adni.ageScaled) == 0)]
+        valid1 = self.adni[(np.isnan(self.adni[args.var]) == 0)
+                           & (np.isnan(self.adni.tage) == 0) & (self.adni.tage!= 0)]
                                # & ((self.adni['DX.bl'] =='CN')|(self.adni['DX.bl'] =='SMC'))]
-        filter=av45_valid['DX.bl'].isin(checklist)
+        filter=valid1['APOE4'].isin([1,2])
+        valid1=valid1[filter]
 
-        av45_valid=av45_valid[filter]
-        tau_valid = self.adni[(np.isnan(self.adni.TAU) == 0)
-                              & (np.isnan(self.adni.ageScaled) == 0)]
+        valid2 = self.adni[(np.isnan(self.adni[args.var]) == 0)
+                           & (np.isnan(self.adni.tage) == 0) & (self.adni.tage!= 0)]
                               # & ((self.adni['DX.bl'] == 'CN') | (self.adni['DX.bl'] == 'SMC'))]
-        filter=tau_valid['DX.bl'].isin(checklist)
-        tau_valid=tau_valid[filter]
+        filter=valid2['APOE4'].isin([0])
+        valid2=valid2[filter]
 
         # t1 = torch.tensor(av45_valid.ageScaled.to_numpy()/10)
-        t1 = torch.tensor(av45_valid['t.age'].to_numpy())
-        x1 = torch.tensor(np.expand_dims(np.expand_dims(av45_valid.AV45.to_numpy(), 1), 1))
+        t1 = torch.tensor(valid1['tage'].to_numpy())
+        x1 = torch.tensor(np.expand_dims(np.expand_dims(valid1[args.var].to_numpy(), 1), 1))
         # t2 = torch.tensor(tau_valid.ageScaled.to_numpy()/10)
-        t2 = torch.tensor(tau_valid['t.age'].to_numpy())
-        x2 = torch.tensor(np.expand_dims(np.expand_dims(tau_valid.TAU.to_numpy(), 1), 1))
+        t2 = torch.tensor(valid2['tage'].to_numpy())
+        x2 = torch.tensor(np.expand_dims(np.expand_dims(valid2[args.var].to_numpy(), 1), 1))
 
         self.SparseData.append((t1, t2, x1, x2, x1, x2))
         # for i in range(0,min(len(av45_valid),len(tau_valid)),5):
@@ -72,12 +69,12 @@ func = None
 func = VanillaODEFunc(x_dim, h_dim, y_dim)
 
 optimizer = torch.optim.Adam(func.parameters(), lr=1e-2)
-dataset = adniData('/N/u/liyuny/Quartz/cnode_ffr_main/data/adni_tau_amyloid.csv',"AD")
+dataset = adniData(args.data)
 
 data_loader = DataLoader(dataset)
 sim=False
 ts_equal=False
-folder='/N/slate/liyuny/cnode_ffr_main/results/adni/adniFit_AD_meanInitial/'
+folder=args.outdir
 if not osp.exists(folder):
     os.makedirs(folder)
 seed=0
@@ -85,7 +82,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 trainer = Trainer(sim, device, ts_equal, func, optimizer, folder, seed,True)
 print('Training...')
 start_time = time.time()
-trainer.train(data_loader, 501, seed)
+trainer.train(data_loader, args.epoch, seed)
 torch.save(func, osp.join(folder, ('trained_model_' + str(seed) + '.pth')))
 end_time = time.time()
 
@@ -99,14 +96,14 @@ dr_pred = dv_pred / dt_dense
 # print(time)
 plt.subplot(2, 1, 1)
 plt.plot(time[:len(time) - 1].detach().numpy(),
-         dr_pred[0][:len(time) - 1].detach().numpy(), linewidth=0.3, alpha=0.7)
+         dr_pred[0][:len(time) - 1].detach().numpy(), linewidth=1, alpha=0.7)
 # plt.xlim([0, 15])
-plt.title('Accumulative rate for dense pred X1')
+plt.title('Accumulative Rate for APOE4 Carrier Pred '+str(args.var))
 plt.subplot(2, 1, 2)
 plt.plot(time[:len(time) - 1].detach().numpy(),
-         dr_pred[1][:len(time) - 1].detach().numpy(), linewidth=0.3, alpha=0.7)
+         dr_pred[1][:len(time) - 1].detach().numpy(), linewidth=1, alpha=0.7)
 # plt.xlim([0, 15])
-plt.title('Accumulative rate for dense pred X2')
+plt.title('Accumulative Rate for APOE4 Non-carrier Pred '+str(args.var))
 # plt.show()
 plt.savefig(folder + "/AccRate")
 

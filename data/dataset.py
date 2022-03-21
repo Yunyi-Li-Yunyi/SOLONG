@@ -11,7 +11,7 @@ from torchvision import datasets, transforms
 from six.moves import urllib
 from scipy.io import loadmat
 from torch.nn.utils.rnn import pad_sequence
-from tqdm import tqdm
+# from tqdm import tqdm
 from scipy.integrate import odeint
 # from torchdiffeq import odeint
 from scipy import ndimage
@@ -57,7 +57,9 @@ class DeterministicLotkaVolterraData(Dataset):
     sd_u: float
         the standard deviation of random normal noise for X2
     rho: float
-        the covariance between x1 and x2 if x1x2Ind==False
+        the covariance between x1(t) and x1(s)
+    rho_bw: float
+        the covariance between x1(t) and x2(t)
     num_obs_x1 : Tuple[int,int]
         The range of number of context points.
 
@@ -72,8 +74,8 @@ class DeterministicLotkaVolterraData(Dataset):
                  num_samples=300, lambdaX1=2., lambdaX2=1.,sdense=None,
                  ts_equal = True,
                  num_obs_x1=(5, 6),
-                 num_obs_x2=(7,8),
-                 sd_v=0., sd_u=0., rho=0.,scenario=None,
+                 num_obs_x2=(7, 8),
+                 sd_v=0., sd_u=0., rho=0.,rho_bw=0.,scenario=None,
                  lambdaY=1., sd_y=0., num_context_rangeY=(5, 6), seed=0):
 
         self.alpha = alpha
@@ -88,6 +90,7 @@ class DeterministicLotkaVolterraData(Dataset):
         self.sd_v = sd_v
         self.sd_u = sd_u
         self.rho = rho
+        self.rho_bw=rho_bw
         self.scenario=scenario
         self.ts_equal=ts_equal
         self.num_obs_x1 = num_obs_x1
@@ -106,7 +109,6 @@ class DeterministicLotkaVolterraData(Dataset):
         print("Creating dataset...", flush=True)
 
         np.random.seed(self.seed)
-
 
         # for samples in tqdm(range(self.num_samples)):
         for samples in range(self.num_samples):
@@ -210,8 +212,9 @@ class DeterministicLotkaVolterraData(Dataset):
 
                 # sigma11=self.sd_v**2*np.ones((sizeX,sizeX))
                 # sigma22=self.sd_u**2*np.ones((sizeX,sizeX))
-                sigma12=2*self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
-                sigma21=2*self.rho*self.sd_v*self.sd_u*np.identity(sizeX)
+                sigma12=self.rho_bw*self.sd_v*self.sd_u*np.identity(sizeX)
+                sigma21=self.rho_bw*self.sd_v*self.sd_u*np.identity(sizeX)
+
                 # sigma12=np.identity(sizeX)
                 # sigma21=np.identity(sizeX)
 
@@ -219,6 +222,8 @@ class DeterministicLotkaVolterraData(Dataset):
             sigma_bot = np.hstack((sigma21,sigma22))
             sigma = np.vstack((sigma_top,sigma_bot))
             # print(sigma)
+            # print("----print eigenvalues----")
+            # print(np.real(np.linalg.eigvals(sigma)))
             return sigma
 
         assert self.num_obs_x1==self.num_obs_x2, "number of observations of X1 and X2 are not equal!"
@@ -295,7 +300,7 @@ class DeterministicLotkaVolterraData(Dataset):
                 sigma11=self.sd_v**2*exponentiated_quadratic(X1, X1)
                 sigma22=self.sd_u**2*exponentiated_quadratic(X2, X2)
                 sigma12=self.sd_v*self.sd_u*exponentiated_quadratic(X1, X2)
-                sigma21 =self.sd_u*self.sd_v*exponentiated_quadratic(X2, X1)
+                sigma21=self.sd_u*self.sd_v*exponentiated_quadratic(X2, X1)
 
             # sim C:
             # elif scenario=='simC':
@@ -406,14 +411,13 @@ class DeterministicLotkaVolterraData(Dataset):
 
     def __len__(self):
         return self.num_samples
-
-
-if __name__ == "__main__":
-    sdense = np.linspace(0, 15, 100)
-
-    datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
-                                              num_samples=1, sd_u=1., sd_v=1.,rho=0.2, scenario='simC',
-                                              num_obs_x1=4, num_obs_x2=4,ts_equal=True,sd_y=0.)
+#
+# if __name__ == "__main__":
+#     sdense = np.linspace(0, 15, 100)
+#
+#     datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
+#                                               num_samples=1, sd_u=2.0, sd_v=2.0,rho=0.3,rho_bw=0.5, scenario='simC',
+#                                               num_obs_x1=5, num_obs_x2=5,ts_equal=True,sd_y=0.,seed=1)
 #     t1, t2, x1_obs, x2_obs, x1_true, x2_true = datasets[0][1]
 #     t,x_obs,x_true = datasets[0][1]
 #     print(x1_obs)
