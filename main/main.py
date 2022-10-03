@@ -12,24 +12,25 @@ from models.training import Trainer
 from torch.utils.data import DataLoader
 from models.utils import ObservedData as od
 from models.utils import prediction
-
+#
 from joblib import Parallel, delayed
 import multiprocessing
 import time
 from evaluation.eval import final_eval_default
 import matplotlib.pyplot as plt
-from evaluation.obsPercent import obsPercent as op
+from models.utils import obsPercent as op
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--exp_name', type=str, required=True)
+parser.add_argument('--rangeMax', type=int, default=15)
 
 parser.add_argument('--model', type=str, choices=['vnode'], default='vnode')
-parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2'],default='simA') # simulation senario
+parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2'],default='simA') # simulation scenario
 parser.add_argument('--sd_v', type=float, default=0.) # sd for error of X1
 parser.add_argument('--sd_u', type=float, default=0.) # sd for error of X2
-parser.add_argument('--rho_b', type=float, default=0.)  # correlation coefficient of X1(t), X1(s).
 parser.add_argument('--rho_w', type=float, default=0.)  # correlation coefficient of X1(t), X1(s).
+parser.add_argument('--rho_b', type=float, default=0.)  # correlation coefficient of X1(t), X2(t).
 
 parser.add_argument('--lambdaX1', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
 parser.add_argument('--lambdaX2', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
@@ -54,15 +55,14 @@ parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/results')
 args = parser.parse_args()
 
 def run(device,seed):
-
     # Create dataset
     print('Generating Data')
     print('Scenario: '+args.scenario)
     if args.data == 'deterministic_lv':
-        sdense = np.linspace(0, 15, 100)
+        sdense = np.linspace(0, args.rangeMax, 100)
         dataset = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10,
                                                 num_samples=args.num_samples, scenario=args.scenario,sd_u=args.sd_u,
-                                                sd_v=args.sd_v, rho=args.rho_w, rho_bw=args.rho_b, lambdaX1=args.lambdaX1,
+                                                sd_v=args.sd_v, lambdaX1=args.lambdaX1,rho_w=args.rho_w,rho_b=args.rho_b,
                                                 lambdaX2=args.lambdaX2,sdense=sdense,
                                                 ts_equal=args.ts_equal,
                                                 num_obs_x1=args.num_obs_x1,num_obs_x2=args.num_obs_x2,seed=seed)
@@ -101,7 +101,8 @@ def run(device,seed):
     np.save(osp.join(folder, ('Data_'+str(seed)+'.npy')), dataset,allow_pickle=True)
 
     torch.save(func, osp.join(folder, ('trained_model_'+str(seed)+'.pth')))
-    prediction(args.ts_equal,func,data_loader,sdense,seed,device,folder)
+    pred=prediction(args.ts_equal,func,data_loader,sdense,seed,device,folder)
+    return pred
 
 
 def iteration(device,iter_start,iter_end):
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     outputPlot()
     final_eval_default(folder,args.iter_end)
     whole_end_time = time.time()
-    op(folder,args.iter_end,args.ts_equal)
+    op(folder,args.iter_end,args.ts_equal,args.rangeMax)
     print('Replication total time = ' + str(whole_end_time - whole_start_time))
 
 

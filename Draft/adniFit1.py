@@ -85,7 +85,7 @@ func = None
 func = VanillaODEFunc(x_dim, h_dim, y_dim)
 
 optimizer = torch.optim.Adam(func.parameters(), lr=1e-2)
-dataset = adniData('/N/u/liyuny/Quartz/cnode_ffr_main/data/adData.csv','SAME')
+dataset = adniData('/data/draftData/adData.csv', 'SAME')
 
 data_loader = DataLoader(dataset)
 sim=False

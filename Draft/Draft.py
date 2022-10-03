@@ -1,5 +1,4 @@
-import torch
-a=torch.tensor([1,2,3])
-b=torch.unsqueeze(a,0)
-print(len(b))
-print(len(a))
+
+valid1 = adni[(np.isnan(adni["WHOLECEREBELLUM_SUVR"]) == 0)
+                   & (np.isnan(adni["YearsOnsetAv45"]) == 0)
+                   & (adni["YearsOnsetAv45"] >= 0)]

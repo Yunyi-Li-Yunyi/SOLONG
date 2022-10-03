@@ -58,7 +58,7 @@ class adniData(Dataset):
     def __getitem__(self, index):
         return self.SparseData[index]
 
-data_loader = adniData('/N/u/liyuny/Quartz/cnode_ffr_main/data/adData.csv')
+data_loader = adniData('/data/draftData/adData.csv')
 for i, data in enumerate(data_loader):
     t1, t2, x1_obs, x2_obs, x1_true, x2_true = data
     #

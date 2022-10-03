@@ -27,6 +27,7 @@ parser.add_argument('--y_dim',type=int,default=2)
 parser.add_argument('--h_dim',type=int,default=125)
 parser.add_argument('--lr',type=float,default=1e-4)
 parser.add_argument('--decay',type=float,default=0.0)
+parser.add_argument('--seed',type=int,default=1)
 args = parser.parse_args()
 
 class adniData(Dataset):
@@ -34,38 +35,32 @@ class adniData(Dataset):
     def __init__(self,csv_file):
         self.adni = pd.read_csv(csv_file)
         self.SparseData=[]
-        valid1 = self.adni[(np.isnan(self.adni[args.var1]) == 0)
-                           & (np.isnan(self.adni[args.t1]) == 0)
-                           & (self.adni[args.t1]>=0)]
+        uRID=pd.DataFrame(set(self.adni['RID']))
+        rRID=uRID.sample(frac=1,replace=True,random_state=args.seed)
+        rSample = rRID.merge(self.adni, how='left', left_on=0, right_on='RID')
+
+        valid1 = rSample[(np.isnan(rSample[args.var1]) == 0)
+                           & (np.isnan(rSample[args.t1]) == 0) ]
                            # & (self.adni[args.age]!= 0)]
                                # & ((self.adni['DX.bl'] =='CN')|(self.adni['DX.bl'] =='SMC'))]
-        valid1['normalized'] = preprocessing.scale(valid1[args.var1])
-        filter1=valid1['APOE4'].isin([1,2])
-        valid1=valid1[filter1]
-        print(valid1["APOE4"])
+        # filter=valid1['APOE4'].isin([0,1,2])
+        # valid1=valid1[filter]
 
-        valid2 = self.adni[(np.isnan(self.adni[args.var2]) == 0)
-                           & (np.isnan(self.adni[args.t2]) == 0)
-                           & (self.adni[args.t2]>=0)]
+        valid2 = rSample[(np.isnan(rSample[args.var2]) == 0)
+                           & (np.isnan(rSample[args.t2]) == 0)]
                            # & (self.adni[args.age]!= 0)]
                               # & ((self.adni['DX.bl'] == 'CN') | (self.adni['DX.bl'] == 'SMC'))]
-        valid2['normalized'] = preprocessing.scale(valid2[args.var2])
-        filter2=valid2['APOE4'].isin([1,2])
-        valid2=valid2[filter2]
-        print(valid2["APOE4"])
-
+        # filter=valid2['APOE4'].isin([0,1,2])
+        # valid2=valid2[filter]
 
         # t1 = torch.tensor(av45_valid.ageScaled.to_numpy()/10)
         t1 = torch.tensor(valid1[args.t1].to_numpy())
         # x1 = torch.tensor(np.expand_dims(np.expand_dims(valid1[args.var1].to_numpy(), 1), 1))
-        # x1 = torch.tensor(np.expand_dims(np.expand_dims(preprocessing.scale(valid1[args.var1]), 1), 1))
-        x1 = torch.tensor(np.expand_dims(np.expand_dims((valid1["normalized"]), 1), 1))
-
+        x1 = torch.tensor(np.expand_dims(np.expand_dims(preprocessing.scale(valid1[args.var1]), 1), 1))
         # t2 = torch.tensor(tau_valid.ageScaled.to_numpy()/10)
         t2 = torch.tensor(valid2[args.t2].to_numpy())
         # x2 = torch.tensor(np.expand_dims(np.expand_dims(valid2[args.var2].to_numpy(), 1), 1))
-        # x2 = torch.tensor(np.expand_dims(np.expand_dims(preprocessing.scale(valid2[args.var2]), 1), 1))
-        x2 = torch.tensor(np.expand_dims(np.expand_dims((valid2["normalized"]), 1), 1))
+        x2 = torch.tensor(np.expand_dims(np.expand_dims(preprocessing.scale(valid2[args.var2]), 1), 1))
 
         self.SparseData.append((t1, t2, x1, x2, x1, x2))
 
@@ -113,12 +108,11 @@ def figures(folder,csv_file,nepoch,var1,var2):
     return 0
 
 if __name__ == "__main__":
-    folder = args.outdir
-
+    folder=osp.join(args.outdir,str(args.seed))
     if not osp.exists(folder):
         os.makedirs(folder)
 
-    with open(osp.join(args.outdir, 'args.txt'), 'w') as f:
+    with open(osp.join(folder, 'args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
     x_dim = args.x_dim
     y_dim = args.y_dim
@@ -135,13 +129,12 @@ if __name__ == "__main__":
     ts_equal = False
     if not osp.exists(folder):
         os.makedirs(folder)
-    seed = 0
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    trainer = Trainer(sim, device, ts_equal, func, optimizer, folder, seed, True)
+    trainer = Trainer(sim, device, ts_equal, func, optimizer, folder, args.seed, True)
     print('Training...')
     start_time = time.time()
-    trainer.train(data_loader, args.epoch, seed)
-    torch.save(func, osp.join(folder, ('trained_model_' + str(seed) + '.pth')))
+    trainer.train(data_loader, args.epoch, args.seed)
+    torch.save(func, osp.join(folder, ('trained_model_' + str(args.seed) + '.pth')))
     end_time = time.time()
 
     # func = torch.load(osp.join(folder, 'trained_model.pth')).to(device)
@@ -156,30 +149,3 @@ if __name__ == "__main__":
     plt.ylabel("X2")
     # plt.show()
     plt.savefig(folder + "/phasePlot")
-
-
-# if __name__ == "__main__":
-#     folder="/N/slate/liyuny/cnode_ffr_main/results/meta_whole_lr4_2"
-#     csv_file="/N/u/liyuny/Quartz/cnode_ffr_main/data/av45mav1451PET_v3.csv"
-#     nepoch=5000
-#     var1="META_TEMPORAL_SUVR"
-#     var2="WHOLECEREBELLUM_SUVR"
-#     figures(folder,csv_file,nepoch,var1,var2)
-# dt_dense = torch.roll(time, -1, 0) - time  # delta time
-# dv_pred = torch.transpose(torch.roll(pred, -1, 0) - pred, 0, 1)  # delta values
-# dr_pred = dv_pred / dt_dense
-
-# print(time)
-# plt.subplot(2, 1, 1)
-# plt.plot(time[:len(time) - 1].detach().numpy(),
-#          dr_pred[0][:len(time) - 1].detach().numpy(), linewidth=1, alpha=0.7)
-# plt.xlim([0, 15])
-# plt.title('Accumulative Rate for APOE4 Carrier Pred '+str(args.var))
-# plt.subplot(2, 1, 2)
-# plt.plot(time[:len(time) - 1].detach().numpy(),
-#          dr_pred[1][:len(time) - 1].detach().numpy(), linewidth=1, alpha=0.7)
-# # plt.xlim([0, 15])
-# plt.title('Accumulative Rate for APOE4 Non-carrier Pred '+str(args.var))
-# # plt.show()
-# plt.savefig(folder + "/AccRate")
-

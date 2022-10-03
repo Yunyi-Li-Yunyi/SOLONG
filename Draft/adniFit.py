@@ -15,9 +15,6 @@ class adniData(Dataset):
     """read in adni Data ad Dataset"""
     def __init__(self,csv_file,group):
         self.adni = pd.read_csv(csv_file)
-        # self.root_dir = root_dir
-        # print(self.adni.head())
-        self.adni['ageScaled'] = self.adni['t.age'] - min(self.adni['t.age'])
         self.SparseData=[]
         self.group=group
         if self.group=='CN':
@@ -30,7 +27,6 @@ class adniData(Dataset):
             checklist=['AD','EMCI','LMCI','SMC']
         av45_valid = self.adni[(np.isnan(self.adni.AV45) == 0)
                                & (np.isnan(self.adni.ageScaled) == 0)]
-                               # & ((self.adni['DX.bl'] =='CN')|(self.adni['DX.bl'] =='SMC'))]
         filter=av45_valid['DX.bl'].isin(checklist)
 
         av45_valid=av45_valid[filter]
@@ -72,7 +68,7 @@ func = None
 func = VanillaODEFunc(x_dim, h_dim, y_dim)
 
 optimizer = torch.optim.Adam(func.parameters(), lr=1e-2)
-dataset = adniData('/N/u/liyuny/Quartz/cnode_ffr_main/data/adni_tau_amyloid.csv',"AD")
+dataset = adniData('/data/draftData/adni_tau_amyloid.csv', "AD")
 
 data_loader = DataLoader(dataset)
 sim=False

@@ -75,7 +75,7 @@ class DeterministicLotkaVolterraData(Dataset):
                  ts_equal = True,
                  num_obs_x1=(5, 6),
                  num_obs_x2=(7, 8),
-                 sd_v=0., sd_u=0., rho=0.,rho_bw=0.,scenario=None,
+                 sd_v=0., sd_u=0., rho_w=0.,rho_b=0.,scenario=None,
                  lambdaY=1., sd_y=0., num_context_rangeY=(5, 6), seed=0):
 
         self.alpha = alpha
@@ -89,8 +89,8 @@ class DeterministicLotkaVolterraData(Dataset):
 
         self.sd_v = sd_v
         self.sd_u = sd_u
-        self.rho = rho
-        self.rho_bw=rho_bw
+        self.rho_w = rho_w
+        self.rho_b=rho_b
         self.scenario=scenario
         self.ts_equal=ts_equal
         self.num_obs_x1 = num_obs_x1
@@ -199,21 +199,21 @@ class DeterministicLotkaVolterraData(Dataset):
             # sim C:
             elif scenario=='simC':
                 # print("Sim C")
-                def ar1_corr(n,rho):
+                def ar1_corr(n,rho_w):
                     exponent=abs(np.repeat(np.arange(n),n,axis=0).reshape(n,n)-np.arange(n))
-                    return rho**exponent
+                    return rho_w**exponent
 
                 # sigma11=self.sd_v**2*np.ones((sizeX1,sizeX1))
                 # sigma22=self.sd_u**2*np.ones((sizeX2,sizeX2))
-                corr11=ar1_corr(sizeX,self.rho)
+                corr11=ar1_corr(sizeX,self.rho_w)
                 sigma11=self.sd_v**2*corr11
-                corr22=ar1_corr(sizeX,self.rho)
+                corr22=ar1_corr(sizeX,self.rho_w)
                 sigma22=self.sd_u**2*corr22
 
                 # sigma11=self.sd_v**2*np.ones((sizeX,sizeX))
                 # sigma22=self.sd_u**2*np.ones((sizeX,sizeX))
-                sigma12=self.rho_bw*self.sd_v*self.sd_u*np.identity(sizeX)
-                sigma21=self.rho_bw*self.sd_v*self.sd_u*np.identity(sizeX)
+                sigma12=self.rho_b*self.sd_v*self.sd_u*np.identity(sizeX)
+                sigma21=self.rho_b*self.sd_v*self.sd_u*np.identity(sizeX)
 
                 # sigma12=np.identity(sizeX)
                 # sigma21=np.identity(sizeX)

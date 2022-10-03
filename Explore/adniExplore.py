@@ -4,7 +4,7 @@ import os
 import os.path as osp
 import numpy as np
 
-adni = pd.read_csv('/N/u/liyuny/Quartz/cnode_ffr_main/data/adni_tau_amyloid.csv')
+adni = pd.read_csv('/data/draftData/adni_tau_amyloid.csv')
 folder='/N/slate/liyuny/cnode_ffr_main/results/adni/adniExplore'
 if not osp.exists(folder):
     os.makedirs(folder)

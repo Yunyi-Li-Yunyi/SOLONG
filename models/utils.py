@@ -83,3 +83,32 @@ def prediction(ts_equal,func,data_loader,sdense,seed,device,folder):
     predX_full = odeint(func, x0, torch.tensor(sdense)).to(device)
     np.save(osp.join(folder, 'predX_'+str(seed)+'.npy'), predX_full.detach().numpy(),allow_pickle=True)
     return predX_full
+
+
+def obsPercent(folder,iter_end,ts_equal,rangeMax,outdir):
+    valid1=0
+    total1=0
+    valid2=0
+    total2=0
+    for iter in range(iter_end):
+        datasets = np.load(folder + '/Data_'+str(iter)+'.npy', allow_pickle=True)
+        for i in range(len(datasets)):
+            if ts_equal==True:
+                timeSparse, states_obsSparse, states_trueSparse=datasets[i][1]
+                valid1=valid1+len(timeSparse[timeSparse<=rangeMax])
+                total1=total1+len(timeSparse)
+            else:
+                t1, t2, x1_obs,x2_obs,x1_true,x2_true = datasets[i][1]
+                # time, x_true = datasets[0][0]
+                valid1=valid1+len(t1[t1<=rangeMax])
+                valid2=valid2+len(t2[t2<=rangeMax])
+                total1=total1+len(t1)
+                total2=total2+len(t2)
+    valid=valid1+valid2
+    total=total1+total2
+    percent = torch.tensor([valid/total,valid,total])
+    # print(valid)
+    # print(total)
+    # print(percent)
+    np.savetxt(osp.join(outdir, ('obsPercent.txt')), percent.detach().numpy())
+

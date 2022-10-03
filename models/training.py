@@ -10,7 +10,7 @@ from torchdiffeq import odeint
 import matplotlib.pyplot as plt
 import time
 import os.path as osp
-
+import math
 from joblib import Parallel, delayed
 import multiprocessing
 
@@ -196,14 +196,10 @@ class Trainer:
                 sort_t1, sort_x1_obs, sort_x1_true = od(t1, x1_obs, x1_true)
                 sort_t2, sort_x2_obs, sort_x2_true = od(t2, x2_obs, x2_true)
 
-                # sort_t12, counts = torch.unique(sort_t1.extend(sort_t2), sorted=True, return_counts=True)
-
-                # x0 = torch.tensor([torch.mean(sort_x1_obs), torch.mean(sort_x2_obs)]).to(self.device)
-                # x0_=torch.mean(torch.stack([sort_x1_obs[0:5], sort_x2_obs[0:5]]))
-
-                # x0 = torch.tensor(x0_).to(self.device)
-                # x0 = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]]).to(self.device)
-                x0 = torch.tensor([torch.mean(sort_x1_obs[0:10]), torch.mean(sort_x2_obs[0:10])]).to(self.device)
+                mint1=math.floor(min(sort_t1))+1
+                mint2=math.floor(min(sort_t2))+1
+                x0 = torch.tensor([torch.mean(sort_x1_obs[sort_t1<mint1]),torch.mean(sort_x2_obs[sort_t2<mint2])]).to(self.device)
+                # x0 = torch.tensor([torch.mean(sort_x1_obs[0]), torch.mean(sort_x2_obs[0])]).to(self.device)
 
                 # sort_t12=sort_t12.to(self.device)
                 sort_t1 = sort_t1.to(self.device)
@@ -223,7 +219,7 @@ class Trainer:
                 # mse = ((sortYobs - pred_y.mean)**2).mean()
                 epoch_loss += loss.cpu().item()
             # plot checking
-            if epoch % 100 == 0:
+            if epoch % 1000 == 0:
                 # full time points
                 minT = torch.min(torch.hstack((sort_t1, sort_t2)))
                 maxT = torch.max(torch.hstack((sort_t1, sort_t2)))
@@ -235,18 +231,20 @@ class Trainer:
 
                 plt.figure()
                 # full prediction curve
-                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 0], label="X1_pred",
-                         c='orange')
-                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 1], label="X2_pred", c='c')
+                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 0], label="Amyloid fitted",
+                         c='#FF8000')
+                plt.plot(Xfull.cpu().numpy(), pred_full.cpu().detach().numpy()[:, 1], label="Total Tau fitted", c='#27408B')
                 # observed data with noise
-                plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#7AC5CD', alpha=0.7,
-                            label='X1')
-                plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#C1CDCD', alpha=0.7,
-                            label='X2')
+                plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#8B5A2B', alpha=0.6,
+                            label='Amyloid Observed')
+                plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#9FB6CD', alpha=0.6,
+                            label='Total Tau Observed')
                 # plt.scatter(t1.cpu().numpy()[0, :], x1_obs.cpu().numpy()[0, :], color="none", s=20,
                 #             edgecolor='r')
                 # plt.scatter(t2.cpu().numpy()[0, :], x2_obs.cpu().numpy()[0, :], color="none", s=13,
                 #             edgecolor='g')
+                plt.xlabel("Years From Onset")
+                plt.ylabel("Linear Transformed Values")
 
                 plt.legend()
                 plt.savefig(self.folder + "/AdniPlot" + '_' + str(epoch))
