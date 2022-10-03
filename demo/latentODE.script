@@ -1,0 +1,27 @@
+#!/bin/bash
+
+#SBATCH -J latentODE
+#SBATCH -p debug
+#SBATCH -o sim_%j.txt
+#SBATCH -e error_%j.err
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=liyuny@iu.edu
+#SBATCH --nodes=1
+#SBATCH --exclude=c2
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=2-00:00:00
+#SBATCH --mem=100G
+#SBATCH --cpus-per-task=128
+
+#Load any modules that your program needs
+module load python
+#ROOTDIR=`readlink -f $0 | xargs dirname`/
+ROOTDIR='/N/u/liyuny/Quartz/cnode_ffr_main/demo'
+export PYTHONPATH=$PYTHONPATH:$ROOTDIR
+echo $PWD
+
+srun python -m latentODE \
+--visualize True \
+--niters 2000 \
+--train_dir '/N/u/liyuny/Quartz/cnode_ffr_main/demo' \
+
