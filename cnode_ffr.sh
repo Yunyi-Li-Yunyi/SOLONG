@@ -17,7 +17,7 @@
 module load python
 #ROOTDIR=`readlink -f $0 | xargs dirname`/
 ROOTDIR='/N/u/liyuny/Quartz/cnode_ffr_main/'
-OUTDIR='/N/slate/liyuny/cnode_ffr_main/results/formal_sim/simCupdate'
+OUTDIR='/N/slate/liyuny/cnode_ffr_main/results/test'
 export PYTHONPATH=$PYTHONPATH:$ROOTDIR
 echo $PWD
 
@@ -53,9 +53,9 @@ for scenario in ${scenarioIndex[*]}; do
 	--rho_w $rho_w \
 	--rho_b $rho_b \
 	--h_dim 32 \
-	--epochs 501 \
+	--epochs 1 \
 	--iter_start 0 \
-	--iter_end 1000 \
+	--iter_end 1 \
 	--outdir $OUTDIR
 	done
       done

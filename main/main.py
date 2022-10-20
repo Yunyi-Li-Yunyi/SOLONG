@@ -5,7 +5,7 @@ import json
 # from tqdm import tqdm
 
 from models.NODEmodels import *
-from data.dataset import DeterministicLotkaVolterraData
+from data.dataset import *
 from models.training import Trainer
 
 # from models.utils import PredData
@@ -25,7 +25,7 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--exp_name', type=str, required=True)
 parser.add_argument('--rangeMax', type=int, default=15)
 
-parser.add_argument('--model', type=str, choices=['vnode'], default='vnode')
+parser.add_argument('--model', type=str, choices=['vnode','timevnode','application'], default='vnode')
 parser.add_argument('--scenario', type=str, choices=['simA','simB','simC','simB2'],default='simA') # simulation scenario
 parser.add_argument('--sd_v', type=float, default=0.) # sd for error of X1
 parser.add_argument('--sd_u', type=float, default=0.) # sd for error of X2
@@ -35,7 +35,7 @@ parser.add_argument('--rho_b', type=float, default=0.)  # correlation coefficien
 parser.add_argument('--lambdaX1', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
 parser.add_argument('--lambdaX2', type=float, default=2.) # scale parameter for duration of follow up of X: exp(\lambda)
 
-parser.add_argument('--data', type=str, choices=['deterministic_lv'], default='deterministic_lv')
+parser.add_argument('--data', type=str, choices=['deterministic_lv','functional','functional1'], default='deterministic_lv')
 parser.add_argument('--h_dim', type=int, default=32)
 # parser.add_argument('--batch_size', type=int, default=66)
 
@@ -47,16 +47,16 @@ parser.add_argument('--num_samples', type=int, default=300)
 
 parser.add_argument('--ts_equal',type=eval, choices=[True, False], default=False)
 parser.add_argument('--num_obs_x1',type=int,default=5)
-parser.add_argument('--num_obs_x2',type=int,default=9)
+parser.add_argument('--num_obs_x2',type=int,default=5)
 parser.add_argument('--ifplot', type=eval, choices=[True, False], default=False)
 
 parser.add_argument('--load', type=eval, choices=[True, False], default=False)
-parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/results')
+parser.add_argument('--outdir',type=str,default='/N/u/liyuny/Carbonate/results/test')
 args = parser.parse_args()
 
 def run(device,seed):
     # Create dataset
-    print('Generating Data')
+    print('Generating Data...')
     print('Scenario: '+args.scenario)
     if args.data == 'deterministic_lv':
         sdense = np.linspace(0, args.rangeMax, 100)
@@ -66,13 +66,27 @@ def run(device,seed):
                                                 lambdaX2=args.lambdaX2,sdense=sdense,
                                                 ts_equal=args.ts_equal,
                                                 num_obs_x1=args.num_obs_x1,num_obs_x2=args.num_obs_x2,seed=seed)
-    x_dim = 1
+    elif args.data == 'functional':
+        sdense = np.linspace(0, args.rangeMax, 100)
+        dataset = FunctionalData(sdense=sdense, num_samples=args.num_samples, sd_u=args.sd_u, sd_v=args.sd_v,
+                                  rho_b=args.rho_b,rho_w=args.rho_w, scenario=args.scenario,num_obs_x1=args.num_obs_x1,
+                                  num_obs_x2=args.num_obs_x2,lambdaX1=args.lambdaX1,lambdaX2=args.lambdaX2,ts_equal=args.ts_equal,seed=seed)
+    elif args.data == 'functional1':
+        sdense = np.linspace(0, args.rangeMax, 100)
+        dataset = FunctionalData1(sdense=sdense, num_samples=args.num_samples, sd_u=args.sd_u, sd_v=args.sd_v,
+                                  rho_b=args.rho_b,rho_w=args.rho_w, scenario=args.scenario,num_obs_x1=args.num_obs_x1,
+                                  num_obs_x2=args.num_obs_x2,lambdaX1=args.lambdaX1,lambdaX2=args.lambdaX2,ts_equal=args.ts_equal,seed=seed)
+    t_dim = 1
     y_dim = 2
+    h_dim = args.h_dim
 
     func = None
     if args.model == 'vnode':
-        h_dim = args.h_dim
-        func = VanillaODEFunc(x_dim, h_dim, y_dim).to(device)
+        func = VanillaODEFunc(t_dim, h_dim, y_dim, exclude_time=True).to(device)
+    elif args.model == 'timevnode':
+        func = ODEFuncTimeVariate(t_dim, h_dim, y_dim, exclude_time=False).to(device)
+    elif args.model == 'application':
+        func = ApplicationODEFunc(t_dim, h_dim, y_dim, exclude_time=True).to(device)
 
     if args.load:
         func = torch.load(osp.join(folder, 'trained_model_'+str(seed)+'.pth')).to(device)
@@ -86,7 +100,7 @@ def run(device,seed):
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.Adam(func.parameters(), lr=1e-3)
-    sim=True
+    sim = True
     ts_equal = args.ts_equal
     trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed,args.ifplot)
 
@@ -156,7 +170,7 @@ if __name__ == "__main__":
     outputPlot()
     final_eval_default(folder,args.iter_end)
     whole_end_time = time.time()
-    op(folder,args.iter_end,args.ts_equal,args.rangeMax)
+    op(folder,args.iter_end,args.ts_equal,args.rangeMax,folder)
     print('Replication total time = ' + str(whole_end_time - whole_start_time))
 
 

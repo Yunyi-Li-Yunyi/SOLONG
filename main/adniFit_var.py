@@ -22,10 +22,11 @@ parser.add_argument('--t2', type=str)
 parser.add_argument('--data',type=str)
 parser.add_argument('--outdir',type=str)
 parser.add_argument('--epoch',type=int,default=2001)
-parser.add_argument('--x_dim',type=int,default=1)
+parser.add_argument('--t_dim',type=int,default=1)
 parser.add_argument('--y_dim',type=int,default=2)
 parser.add_argument('--h_dim',type=int,default=125)
 parser.add_argument('--lr',type=float,default=1e-4)
+parser.add_argument('--apoe4',type=str,choices=['carrier','noncarrier','all'], default='carrier')
 parser.add_argument('--decay',type=float,default=0.0)
 args = parser.parse_args()
 
@@ -40,7 +41,13 @@ class adniData(Dataset):
                            # & (self.adni[args.age]!= 0)]
                                # & ((self.adni['DX.bl'] =='CN')|(self.adni['DX.bl'] =='SMC'))]
         valid1['normalized'] = preprocessing.scale(valid1[args.var1])
-        filter1=valid1['APOE4'].isin([1,2])
+        if args.apoe4 == 'carrier':
+            filter1=valid1['APOE4'].isin([1,2])
+        elif args.apoe4 == 'noncarrier':
+            filter1=valid1['APOE4'].isin([0])
+        else:
+            filter1=valid1['APOE4'].isin([0,1,2])
+
         valid1=valid1[filter1]
         print(valid1["APOE4"])
 
@@ -50,7 +57,13 @@ class adniData(Dataset):
                            # & (self.adni[args.age]!= 0)]
                               # & ((self.adni['DX.bl'] == 'CN') | (self.adni['DX.bl'] == 'SMC'))]
         valid2['normalized'] = preprocessing.scale(valid2[args.var2])
-        filter2=valid2['APOE4'].isin([1,2])
+        if args.apoe4 == 'carrier':
+            filter2 = valid2['APOE4'].isin([1, 2])
+        elif args.apoe4 == 'noncarrier':
+            filter2 = valid2['APOE4'].isin([0])
+        else:
+            filter2 = valid2['APOE4'].isin([0, 1, 2])
+
         valid2=valid2[filter2]
         print(valid2["APOE4"])
 
@@ -120,12 +133,12 @@ if __name__ == "__main__":
 
     with open(osp.join(args.outdir, 'args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
-    x_dim = args.x_dim
+    t_dim = args.t_dim
     y_dim = args.y_dim
     h_dim = args.h_dim
     func = None
 
-    func = ApplicationODEFunc(x_dim, h_dim, y_dim)
+    func = ApplicationODEFunc(t_dim, h_dim, y_dim)
 
     optimizer = torch.optim.Adam(func.parameters(), lr=args.lr, weight_decay=args.decay)
     dataset = adniData(args.data)
