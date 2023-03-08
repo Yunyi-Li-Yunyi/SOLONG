@@ -61,7 +61,7 @@ class adniData(Dataset):
 
 if __name__ == "__main__":
     folder = '/N/slate/liyuny/cnode_ffr_main/results/meta_whole_lr4_intial1_appfunc_3Relu_decay4_APOE12_finalized'
-    cvs_file = '/N/u/liyuny/Quartz/cnode_ffr_main/data/av45mav1451PETAPOE_finalized.csv'
+    cvs_file = '/data/av45mav1451PETAPOE_finalized.csv'
     var1 = 'WHOLECEREBELLUM_SUVR'
     var2 = 'META_TEMPORAL_SUVR'
     t1 = 'YearsOnsetAv45'

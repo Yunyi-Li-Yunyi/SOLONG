@@ -12,7 +12,6 @@ from sklearn import preprocessing
 import argparse
 from joblib import Parallel, delayed
 import multiprocessing
-from pathos.multiprocessing import ProcessingPool as Pool
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--age',type=str)
@@ -44,8 +43,6 @@ parser.add_argument('--btseedStart',type=int,default=1)
 parser.add_argument('--btseedEnd',type=int,default=1)
 
 args = parser.parse_args()
-
-
 
 class adniData(Dataset):
     def cleanXT(self,input_x,input_t,boot,btseed):
@@ -85,7 +82,6 @@ class adniData(Dataset):
         x6, t6 = self.cleanXT(args.var6, args.t3, args.bootstrap,btseed)
         x7, t7 = self.cleanXT(args.var7, args.t3, args.bootstrap,btseed)
         self.SparseData.append((t1, t2, t3, t4, t5, t6, t7, x1, x2, x3, x4, x5, x6, x7))
-        self.btseed=btseed
 
     def __len__(self):
         return len(self.SparseData)
@@ -106,11 +102,11 @@ def run(btseed):
     h_dim = args.h_dim
     func = None
 
-    func = ApplicationODEFunc(t_dim, h_dim, y_dim, args.exclude_time)
+    func = ApplicationODEFunc(t_dim, h_dim, y_dim,args.exclude_time)
 
     # optimizer = torch.optim.Adam(func.parameters(), lr=args.lr, weight_decay=args.decay)
     dataset = adniData(args.data,btseed)
-    torch.save(dataset, osp.join(folder, 'Data.pt'))
+    torch.save(dataset,osp.join(folder,('Data.pt')))
 
     data_loader = DataLoader(dataset, shuffle=True)
     sim = False
@@ -119,21 +115,19 @@ def run(btseed):
         os.makedirs(folder)
     seed = 0
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    trainer = Trainer(sim, device, ts_equal, func, folder, seed, True, lr=args.lr, weight_decay=args.decay,
+    trainer = Trainer(sim, device, ts_equal, func, folder, seed, True,lr=args.lr, weight_decay=args.decay,
                       early_stop=args.earlyStop)
     print('Training...')
     start_time = time.time()
     trainer.train(data_loader, args.Bepoch, args.epoch, seed)
     torch.save(func, osp.join(folder, ('trained_model_' + str(seed) + '.pth')))
     end_time = time.time()
+
 if __name__ == "__main__":
-    # rep = range(args.btseedStart,args.btseedEnd)
-    rep = [67,76,77,86,93,10,12,31,38,48,49,65,75,78,80,82,83,85,88,89,90,91,92,94,95,96,97,98,99,100,10,12,31,38]
+    rep = range(args.btseedStart,args.btseedEnd)
     num_cores = multiprocessing.cpu_count()
     print('num_cores:' + str(num_cores))
-    p=Pool()
-    p.map(run,rep)
-    # Parallel(n_jobs=num_cores)(delayed(run)(adniData,i) for i in rep)
+    Parallel(n_jobs=num_cores)(delayed(run)(i) for i in rep)
 
 
 

@@ -52,7 +52,6 @@ class VanillaODEFunc(nn.Module):
     def forward(self,t,y):
         return self.net(y)
 
-
 class ODEFuncTimeVariate(nn.Module):
     """
     Maps times X to predictions y.
@@ -117,7 +116,7 @@ class ApplicationODEFunc(nn.Module):
         Dimension of y values.
     """
 
-    def __init__(self, t_dim, h_dim, y_dim, exclude_time=False):
+    def __init__(self, t_dim, h_dim, y_dim, exclude_time):
         super(ApplicationODEFunc,self).__init__()
 
         # X is always time.
@@ -149,9 +148,10 @@ class ApplicationODEFunc(nn.Module):
                 nn.init.constant_(m.bias,val=0)
 
     def forward(self,t,y):
-        time = t.view(1)
-        yt = torch.cat((y, time), dim=0)
-        return self.net(yt)
-
-
+        if self.exclude_time:
+            return self.net(y)
+        else:
+            time = t.view(1)
+            yt = torch.cat((y, time), dim=0)
+            return self.net(yt)
 

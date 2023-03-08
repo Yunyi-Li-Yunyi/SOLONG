@@ -48,6 +48,7 @@ class Trainer:
                  device: torch.device,
                  ts_equal,
                  ODEFunc,
+                 # optimizer: torch.optim.Optimizer,
                  folder,
                  seed,
                  ifplot,
@@ -70,7 +71,7 @@ class Trainer:
 
         np.random.seed(self.seed)
 
-    def train(self, train_data_loader: DataLoader, Bepochs: int, epochs: int, seed):
+    def train(self, train_data_loader: DataLoader, epochs: int, seed):
         """
         Train Neural ODE.
 
@@ -84,59 +85,90 @@ class Trainer:
         # self.train()
         updatedx0 = torch.tensor(0)
         x0Record = []
-        lastLoss = 9999
-        for blockEpoch in range(Bepochs):
+        for blockEpoch in range(epochs):
             print(f'BlockEpoch {blockEpoch}')
             print(f'Seed {seed}')
             epoch_start_time = time.time()
+            lastLossTheta = 99999
+            lastLossInit = 9999
+            lastLoss = 99999
 
             for epoch in range(epochs):
                 if self.sim == True:
-                    epoch_loss,updatedx0 = self.train_epoch_TrainInit(train_data_loader, blockEpoch,epoch, seed,"theta",updatedx0)
+                    epoch_loss,updatedx0 = self.train_epoch_TrainInit(train_data_loader, blockEpoch,epoch, seed,"theta",updatedx0,False)
                     # during theta training phase, set updatedx0=0 means there's no update for x0
                 else:
-                    epoch_loss,updatedx0 = self.train_epoch_RealData_TrainInit(train_data_loader, blockEpoch,epoch,"theta",updatedx0)
+                    epoch_loss,updatedx0 = self.train_epoch_RealData_TrainInit(train_data_loader, blockEpoch,epoch,"theta",updatedx0,False)
                 self.epoch_loss_history.append(epoch_loss)
                 print('theta_B:{},\n theta_epoch: {}, \n theta_epoch_loss: {}'.format(blockEpoch,epoch,epoch_loss))
                 epoch_end_time = time.time()
                 print('theta_Each Epoch time = ' + str(epoch_end_time - epoch_start_time))
                 print('theta_updatedx0 output:{}'.format(updatedx0))
-
+                if blockEpoch !=0:
+                    currentLoss=epoch_loss
+                    if lastLoss-currentLoss > self.early_stop or lastLoss-currentLoss <0:
+                        lastLoss = currentLoss
+                        lastLossTheta = currentLoss
+                        continue
+                    else:
+                        print('Early Stop for Theta!')
+                        if self.sim == True:
+                            epoch_loss, updatedx0 = self.train_epoch_TrainInit(train_data_loader, blockEpoch, epoch,
+                                                                               seed, "theta", updatedx0, True)
+                            # during theta training phase, set updatedx0=0 means there's no update for x0
+                        else:
+                            epoch_loss, updatedx0 = self.train_epoch_RealData_TrainInit(train_data_loader, blockEpoch,
+                                                                                        epoch, "theta", updatedx0, True)
+                        lastLossTheta = epoch_loss
+                        lastLoss = epoch_loss
+                        break
             for epoch in range(epochs,epochs+epochs):
                 x0Record.append(updatedx0)
                 if self.sim == True:
-                    epoch_loss,updatedx0 = self.train_epoch_TrainInit(train_data_loader, blockEpoch, epoch, seed,"init",updatedx0)
+                    epoch_loss,updatedx0 = self.train_epoch_TrainInit(train_data_loader, blockEpoch, epoch, seed,"init",updatedx0,False)
 
                 else:
-                    epoch_loss,updatedx0 = self.train_epoch_RealData_TrainInit(train_data_loader, blockEpoch, epoch, "init",updatedx0)
+                    epoch_loss,updatedx0 = self.train_epoch_RealData_TrainInit(train_data_loader, blockEpoch, epoch, "init",updatedx0,False)
                 print('init_B:{},\n init_epoch: {}, \n init_epoch_loss: {}'.format(blockEpoch, epoch,epoch_loss))
                 print('init_updatedx0 output:{}'.format(updatedx0))
+                currentLoss=epoch_loss
+                if lastLoss-currentLoss > self.early_stop or lastLoss-currentLoss <0:
+                    lastLossInit = currentLoss
+                    lastLoss = epoch_loss
+                    continue
+                else:
+                    print('Early Stop for Initial Value!')
+                    if self.sim == True:
+                        epoch_loss, updatedx0 = self.train_epoch_TrainInit(train_data_loader, blockEpoch, epoch, seed,
+                                                                           "init", updatedx0, True)
 
-            currentLoss = epoch_loss
+                    else:
+                        epoch_loss, updatedx0 = self.train_epoch_RealData_TrainInit(train_data_loader, blockEpoch,
+                                                                                    epoch, "init", updatedx0, True)
+                    lastLossInit = epoch_loss
+                    lastLoss = epoch_loss
+                    break
 
-            if abs(lastLoss-currentLoss) > self.early_stop:
+            if abs(lastLossTheta-lastLossInit) > (self.early_stop*10):
                 print('Final Continue')
-                print('LastLoss:{},\n currentLoss: {}'.format(lastLoss,currentLoss))
-                lastLoss = currentLoss
+                print('LastLossInit:{},\n LastLossTheta: {}'.format(lastLossInit,lastLossTheta))
                 continue
             else:
                 print('Early Stop for Training Block!')
-                print('LastLoss:{},\n currentLoss: {}'.format(lastLoss,currentLoss))
-
                 blockEpoch = 9999
-                epoch = 299000
+                epoch = 9999
 
                 if self.sim == True:
                     epoch_loss, updatedx0 = self.train_epoch_TrainInit(train_data_loader, blockEpoch, epoch, seed,
-                                                                       "init", updatedx0)
+                                                                       "init", updatedx0, True)
+
                 else:
                     epoch_loss, updatedx0 = self.train_epoch_RealData_TrainInit(train_data_loader, blockEpoch,
-                                                                                epoch, "init", updatedx0)
+                                                                                epoch, "init", updatedx0, True)
                 print('Final_B:{},\n Final_epoch: {}, \n Final_epoch_loss: {}'.format(blockEpoch, epoch,epoch_loss))
                 print('Final_updatedx0 output:{}'.format(updatedx0))
                 x0Record.append(updatedx0)
-                torch.save(x0Record, osp.join(self.folder, 'x0Record'+ '.pt'))
-                print('x0Record Type:{},\n updatedx0 Type:{}'.format(type(x0Record),type(updatedx0)))
+                np.save(osp.join(self.folder, 'x0Record'+ '.npy'), x0Record.detach().numpy(), allow_pickle=True)
                 break
 
     def train_epoch(self, data_loader, epoch, seed):
@@ -237,7 +269,7 @@ class Trainer:
         print(epoch_loss)
         return epoch_loss
 
-    def train_epoch_TrainInit(self, data_loader, blockEpoch,epoch, seed, param, updatedx0):
+    def train_epoch_TrainInit(self, data_loader, blockEpoch,epoch, seed,param, updatedx0,outputTF):
         epoch_loss = 0.
         # self.train()
         # for i, data in enumerate(tqdm(data_loader)):
@@ -251,7 +283,7 @@ class Trainer:
                 x_obs = x_obs.to(self.device)
                 x_true = x_true.to(self.device)
                 sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true)
-                if torch.sum(updatedx0) == 0:
+                if param == "theta":
                     x0init = sort_x_obs[0]
                     x0init = torch.reshape(x0init, (2, 1))
                     print('x0: {}'.format(str(x0init)))
@@ -277,9 +309,10 @@ class Trainer:
                     # params = (list(x0func.parameters()))
                     optimizer = torch.optim.Adam(params, lr=self.lr)
                     optimizer.zero_grad()
-                    l1_lambda = 0.0001
+                    l1_lambda = 0.001
                     l1_norm = sum(torch.linalg.norm(p, 1) for p in params)
                     loss = loss + l1_lambda * l1_norm
+
                 elif param == 'init':
                     params = (list(x0func.parameters()))
                     optimizer = torch.optim.Adam(params,lr=0.001)
@@ -305,7 +338,7 @@ class Trainer:
                 sort_t2, sort_x2_obs, sort_x2_true = od(t2, x2_obs, x2_true)
 
                 # sort_t12, counts = torch.unique(sort_t1.extend(sort_t2), sorted=True, return_counts=True)
-                if torch.sum(updatedx0) == 0:
+                if param == "theta":
                     x0init = torch.tensor([sort_x1_obs[0], sort_x2_obs[0]])
                     x0init = torch.reshape(x0init, (2, 1))
                     print('x0: {}'.format(str(x0init)))
@@ -344,7 +377,7 @@ class Trainer:
                     # params = (list(x0func.parameters()))
                     optimizer = torch.optim.Adam(params, lr=self.lr)
                     optimizer.zero_grad()
-                    l1_lambda = 0.0001
+                    l1_lambda = 0.001
                     l1_norm = sum(torch.linalg.norm(p, 1) for p in params)
                     loss = loss + l1_lambda * l1_norm
 
@@ -360,36 +393,37 @@ class Trainer:
                 epoch_loss += loss.cpu().item()
 
             # plot checking
-            if epoch % 299 ==0:
-                # full time points
-                Xfull, trueYfull = data[:][0]
-                Xfull = Xfull.to(self.device)
-                trueYfull = trueYfull.to(self.device)
-                # y0true = trueYfull[0, 0, :]
-                pred_full = odeint(self.ODEFunc, updatedx0, Xfull[0, :])
+            if outputTF==True:
+                if epoch % 500 == 0:
+                    # full time points
+                    Xfull, trueYfull = data[:][0]
+                    Xfull = Xfull.to(self.device)
+                    trueYfull = trueYfull.to(self.device)
+                    # y0true = trueYfull[0, 0, :]
+                    pred_full = odeint(self.ODEFunc, updatedx0, Xfull[0, :])
 
-                plt.figure()
-                # full true curve
-                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 0], label="X1_true", c='r')
-                plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 1], label='X2_true', c='g')
-                # full prediction curve
-                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 0], label="X1_pred", c='orange')
-                plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 1], label="X2_pred", c='c')
-                # observed data with noise
-                if self.ts_equal == True:
-                    plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 0], marker='x', c='#7AC5CD', alpha=0.7)
-                    plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 1], marker='x', c='#C1CDCD', alpha=0.7)
-                    plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 0], color="none", edgecolor='r', s=20)
-                    plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 1], color="none", edgecolor='g', s=13)
-                else:
-                    plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#7AC5CD', alpha=0.7)
-                    plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#C1CDCD', alpha=0.7)
-                    plt.scatter(t1.cpu().numpy()[0, :], x1_obs.cpu().numpy()[0, :], color="none", s=20, edgecolor='r')
-                    plt.scatter(t2.cpu().numpy()[0, :], x2_obs.cpu().numpy()[0, :], color="none", s=13, edgecolor='g')
+                    plt.figure()
+                    # full true curve
+                    plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 0], label="X1_true", c='r')
+                    plt.plot(Xfull.cpu().numpy()[0, :], trueYfull.cpu().numpy()[1, :, 1], label='X2_true', c='g')
+                    # full prediction curve
+                    plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 0], label="X1_pred", c='orange')
+                    plt.plot(Xfull.cpu().numpy()[0, :], pred_full.cpu().detach().numpy()[:, 1], label="X2_pred", c='c')
+                    # observed data with noise
+                    if self.ts_equal == True:
+                        plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 0], marker='x', c='#7AC5CD', alpha=0.7)
+                        plt.scatter(t.cpu().numpy(), x_obs.cpu().numpy()[:, :, 1], marker='x', c='#C1CDCD', alpha=0.7)
+                        plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 0], color="none", edgecolor='r', s=20)
+                        plt.scatter(t.cpu().numpy()[0, :], x_obs.cpu().numpy()[0, :, 1], color="none", edgecolor='g', s=13)
+                    else:
+                        plt.scatter(t1.cpu().numpy(), x1_obs.cpu().numpy()[:], marker='x', c='#7AC5CD', alpha=0.7)
+                        plt.scatter(t2.cpu().numpy(), x2_obs.cpu().numpy()[:], marker='x', c='#C1CDCD', alpha=0.7)
+                        plt.scatter(t1.cpu().numpy()[0, :], x1_obs.cpu().numpy()[0, :], color="none", s=20, edgecolor='r')
+                        plt.scatter(t2.cpu().numpy()[0, :], x2_obs.cpu().numpy()[0, :], color="none", s=13, edgecolor='g')
 
-                plt.legend()
-                plt.savefig(self.folder + "/plot" + str(seed) + '_' + str(blockEpoch)+'_' + str(epoch))
-                plt.close()
+                    plt.legend()
+                    plt.savefig(self.folder + "/plot" + str(seed) + '_' + str(blockEpoch)+'_' + str(epoch))
+                    plt.close()
         print(epoch_loss)
         return epoch_loss, updatedx0
 
@@ -517,7 +551,7 @@ class Trainer:
         print(epoch_loss)
         return epoch_loss
 
-    def train_epoch_RealData_TrainInit(self, data_loader, blockEpoch, epoch, param, updatedx0):
+    def train_epoch_RealData_TrainInit(self, data_loader, blockEpoch, epoch, param, updatedx0,outputTF):
         epoch_loss = 0.
         # self.train()
         # for i, data in enumerate(tqdm(data_loader)):
@@ -662,7 +696,7 @@ class Trainer:
                 # mse = ((sortYobs - pred_y.mean)**2).mean()
                 epoch_loss += loss.cpu().item()
             # plot checking
-            if epoch % 299 ==0:
+            if outputTF == True:
                 # full time points
                 minT = torch.min(torch.hstack((sort_t1, sort_t2, sort_t3,sort_t4,sort_t5,sort_t6, sort_t7)))
                 maxT = torch.max(torch.hstack((sort_t1, sort_t2, sort_t3,sort_t4,sort_t5,sort_t6 ,sort_t7)))
