@@ -608,7 +608,7 @@ class FunctionalData(Dataset):
 
 if __name__ == "__main__":
     ts_equal = True
-    sdense = np.linspace(0, 2, 100)
+    sdense = np.linspace(0, 5, 100)
 
     # datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
     #                                           num_samples=1, sd_u=0.0, sd_v=0.0,rho_b=0.3,rho_w=0.5, scenario='simA',
@@ -623,12 +623,12 @@ if __name__ == "__main__":
             time, x_true = datasets[i][0]
             plt.plot(time.numpy(), x_true.numpy()[:, 0],label=r'$\mu_1(t)$')
             plt.plot(time.numpy(), x_true.numpy()[:, 1],label=r'$\mu_2(t)$')
-            # plt.scatter(t.numpy(), x_obs.numpy()[:, 0])
-            # plt.scatter(t.numpy(), x_obs.numpy()[:, 1])
+            plt.scatter(t.numpy(), x_obs.numpy()[:, 0])
+            plt.scatter(t.numpy(), x_obs.numpy()[:, 1])
         plt.xlabel("t")
         plt.legend()
-        plt.savefig('/N/u/liyuny/Carbonate/Paper1/ODEstudy2')
-        # plt.show()
+        # plt.savefig('/N/u/liyuny/Carbonate/Paper1/ODEstudy2')
+        plt.show()
     else:
         t1, t2, x1_obs, x2_obs, x1_true, x2_true = datasets[0][1]
         # print(x1_obs)
