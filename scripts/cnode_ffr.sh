@@ -16,18 +16,18 @@
 #Load any modules that your program needs
 module load python
 #ROOTDIR=`readlink -f $0 | xargs dirname`/
-ROOTDIR='/N/u/liyuny/Quartz/cnode_ffr_main/'
-OUTDIR='/N/slate/liyuny/cnode_ffr_main/results/test'
+ROOTDIR='/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/'
+OUTDIR='/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/test'
 export PYTHONPATH=$PYTHONPATH:$ROOTDIR
 echo $PWD
 
-scenarioIndex=(simC)
+scenarioIndex=(simA)
 num_samplesIndex=(100)
-num_obs_xIndex=(5 10)
-sd_uvIndex=(0.3 1.0 2.0)
+num_obs_xIndex=(5)
+sd_uvIndex=(0.3)
 rhowIndex=(0.3)
 rhobIndex=(0.1)
-lambdaIndex=(2.0 4.0)
+lambdaIndex=(2.0)
 ts_equalIndex=(True)
 
 for scenario in ${scenarioIndex[*]}; do

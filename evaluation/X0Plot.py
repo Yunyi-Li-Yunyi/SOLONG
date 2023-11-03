@@ -41,5 +41,5 @@ def simPlot(folder):
     plt.savefig(folder+'/X0')
 
 if __name__=='__main__':
-    folder = '/N/slate/liyuny/cnode_ffr_main/results/Train_Init/simA/test_300_0.3_10_True_0.2_0.1_2.0__nopenalty_'
+    folder = '/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/deterministic_lv/simA/104_0.3_5_False_0.3_0.1_2.0'
     simPlot(folder)

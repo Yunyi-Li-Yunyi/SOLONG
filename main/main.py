@@ -6,7 +6,7 @@ import json
 
 from models.NODEmodels import *
 from data.dataset import *
-from models.training import Trainer
+from models.trainingTrapezoidal import Trainer
 
 # from models.utils import PredData
 from torch.utils.data import DataLoader
@@ -62,26 +62,29 @@ def run(device,seed):
     print('Scenario: '+args.scenario)
     if args.data == 'deterministic_lv':
         sdense = np.linspace(0, args.rangeMax, 100)
-        dataset = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10,
+        dataset = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, initial=1.0,
                                                 num_samples=args.num_samples, scenario=args.scenario,sd_u=args.sd_u,
                                                 sd_v=args.sd_v, lambdaX1=args.lambdaX1,rho_w=args.rho_w,rho_b=args.rho_b,
                                                 lambdaX2=args.lambdaX2,sdense=sdense,
                                                 ts_equal=args.ts_equal,
-                                                num_obs_x1=args.num_obs_x1,num_obs_x2=args.num_obs_x2,seed=seed)
+                                                num_obs_x1=args.num_obs_x1,num_obs_x2=args.num_obs_x2,
+                                                 seed=seed,followup='uniform')
     elif args.data == 'functional':
         sdense = np.linspace(0, args.rangeMax, 100)
         dataset = FunctionalData(sdense=sdense, num_samples=args.num_samples, sd_u=args.sd_u, sd_v=args.sd_v,
                                   rho_b=args.rho_b,rho_w=args.rho_w, scenario=args.scenario,num_obs_x1=args.num_obs_x1,
-                                  num_obs_x2=args.num_obs_x2,lambdaX1=args.lambdaX1,lambdaX2=args.lambdaX2,ts_equal=args.ts_equal,seed=seed)
+                                  num_obs_x2=args.num_obs_x2,lambdaX1=args.lambdaX1,lambdaX2=args.lambdaX2,
+                                 ts_equal=args.ts_equal,seed=seed,followup='uniform')
     t_dim = 1
     y_dim = 2
     h_dim = args.h_dim
+    n_hiddenly=2
 
     func = None
     if args.model == 'vnode':
-        func = VanillaODEFunc(t_dim, h_dim, y_dim, exclude_time=True).to(device)
+        func = VanillaODEFunc(t_dim, h_dim, y_dim, n_hiddenly,exclude_time=True).to(device)
     elif args.model == 'timevnode':
-        func = ODEFuncTimeVariate(t_dim, h_dim, y_dim, exclude_time=False).to(device)
+        func = VanillaODEFunc(t_dim, h_dim, y_dim, n_hiddenly,exclude_time=False).to(device)
 
     if args.load:
         func = torch.load(osp.join(folder, 'trained_model_'+str(seed)+'.pth')).to(device)
@@ -94,11 +97,12 @@ def run(device,seed):
     # batch_size = 100
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    # optimizer = torch.optim.Adam(func.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(func.parameters(), lr=args.lr)
     sim = True
     ts_equal = args.ts_equal
     # trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed,args.ifplot)
-    trainer = Trainer(sim, device, ts_equal, func, folder, seed, args.ifplot,args.lr,0,args.earlyStop)
+    trainer = Trainer(sim, device, ts_equal, func, folder, seed, args.ifplot,args.lr,0,
+                      args.earlyStop,optimizer,initialrefine=True)
     print('Training...')
     start_time = time.time()
     trainer.train(data_loader, args.epochs, args.epochs, seed)

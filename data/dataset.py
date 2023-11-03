@@ -38,6 +38,8 @@ class DeterministicLotkaVolterraData(Dataset):
         fixed initial value for \beta
     gamma : int
         fixed initial value for \gamme
+    initial: float
+        fixed true initial value for ODE system
     num_samples : int
         Number of samples of the function contained in dataset.
     lambdaX1 : float
@@ -64,19 +66,24 @@ class DeterministicLotkaVolterraData(Dataset):
         simulation scenario: A, B, B2
     seed: int
         seed for randomization controlling
+    followup: str
+        the distribution of follow-up duration
     """
     def __init__(self,
                  alpha=None, beta=None, gamma=None,
+                 initial=1.,
                  num_samples=300, lambdaX1=2., lambdaX2=2.,sdense=None,
                  ts_equal = True,
                  num_obs_x1=5,
                  num_obs_x2=7,
                  sd_v=0., sd_u=0., rho_w=0.,rho_b=0.,scenario=None,
-                 seed=0):
+                 seed=0, followup=None):
 
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
+
+        self.initial=initial
 
         self.num_samples = num_samples
         self.lambdaX1 = lambdaX1
@@ -92,6 +99,7 @@ class DeterministicLotkaVolterraData(Dataset):
         self.rho_w = rho_w
         self.rho_b = rho_b
         self.scenario=scenario
+        self.followup=followup
 
         self.seed = seed
 
@@ -132,9 +140,9 @@ class DeterministicLotkaVolterraData(Dataset):
                 self.SparseData.append((t1, t2, x1_obs,x2_obs,x1_true,x2_true))
 
     def generate_ts(self, dense):
-        # X1(t), X2(t) generated at the same time points
-        equal_pop = np.random.uniform(1., 1.) # True Initial Values X0
-        X_0 = np.array([equal_pop, equal_pop])
+        # X1(t), X2(t) generated at the same time points/synchronous
+        # equal_pop = np.random.uniform(1., 1.) # True Initial Values X0
+        X_0 = np.array([self.initial, self.initial]) # True Initial Values [X10,x20]
         a, b, c = self.alpha, self.beta, self.gamma
 
         def dX_dt(X, s=0):
@@ -166,7 +174,7 @@ class DeterministicLotkaVolterraData(Dataset):
                 sigma21 = np.zeros((sizeX, sizeX))
 
             # sim B2:
-            elif scenario == 'simB2': # Between and Within Correlations
+            elif scenario == 'simB2': # Between and Within Correlations [Gaussian Process]
                 # print("Sim B2")
                 def exponentiated_quadratic(xa, xb): # use to calculate Gaussian Process
                     """Exponentiated quadratic with \sigma=1"""
@@ -211,12 +219,24 @@ class DeterministicLotkaVolterraData(Dataset):
             X_true = odeint(dX_dt, X_0, s)
             return s, X_true
         else:
-            s = np.random.exponential(self.lambdaX1, sizeX)
-            s[0] = 0
-            for sik in range(1, len(s)):
-                s[sik] = round(s[sik - 1] + s[sik],2)  # calculate time stamps by accumulating follow-up period
-            X_true = odeint(dX_dt, X_0, s)
+            if self.followup=='exponential':
+                # generate observation time schedule based on exponential distribution
+                s = np.random.exponential(self.lambdaX1, sizeX)
+                s[0] = 0
+                for sik in range(1, len(s)):
+                    s[sik] = round(s[sik - 1] + s[sik],2)  # calculate time stamps by accumulating follow-up period
 
+            elif self.followup=='uniform':
+                # generate observations follow uniform distribution
+                # s = self.sdense
+                # X_true = odeint(dX_dt, X_0, s)
+                samp_s_idx = np.random.choice(range(1, self.sdense.size), (self.num_obs_x1-1), replace=False)
+                samp_s_idx.sort()
+                s = [0]+self.sdense[samp_s_idx].tolist()
+                # X_true = X_true[samp_s_idx]
+            else:
+                print("please specify follow-up distribution")
+            X_true = odeint(dX_dt, X_0, s)
             sigmaMatrix = error_cov(sizeX=len(X_true),scenario=self.scenario)
             meanVector = np.zeros(2 * len(X_true))
 
@@ -226,10 +246,11 @@ class DeterministicLotkaVolterraData(Dataset):
             return s, X_obs, X_true
 
     def generate_ts_2(self, dense):
+        # X1(t), X2(t) asynchronous
         assert self.scenario != 'simC', "simC doesn't work for asynchronous scenario!"
         # X1(t), X2(s) are not at the same time point
-        equal_pop = np.random.uniform(1., 1.)
-        X_0 = np.array([equal_pop, equal_pop])
+        # equal_pop = np.random.uniform(1., 1.)
+        X_0 = np.array([self.initial, self.initial])
         a, b, c = self.alpha, self.beta, self.gamma
 
         def dX_dt(X, s=0):
@@ -238,6 +259,7 @@ class DeterministicLotkaVolterraData(Dataset):
             """
             return np.array([X[0] * (1 - X[0]) - (a * X[0] * X[1] / (X[0] + c)),
                              b * X[1] * (1 - X[1] / X[0])])
+
         def error_cov(sizeX1,sizeX2,scenario):
             """
             Define the variance-covariance matrix to generate errors
@@ -294,15 +316,26 @@ class DeterministicLotkaVolterraData(Dataset):
             return s, X_true
 
         else:
-            s1 = np.random.exponential(self.lambdaX1, sizeX1)
-            s2 = np.random.exponential(self.lambdaX2, sizeX2)
+            if self.followup=='exponential':
+                s1 = np.random.exponential(self.lambdaX1, sizeX1)
+                s2 = np.random.exponential(self.lambdaX2, sizeX2)
 
-            s1[0] = 0
-            for sik in range(1, len(s1)):
-                s1[sik] = round(s1[sik - 1] + s1[sik],2)
-            s2[0] = 0
-            for sik in range(1, len(s2)):
-                s2[sik] = round(s2[sik - 1] + s2[sik],2)
+                s1[0] = 0
+                for sik in range(1, len(s1)):
+                    s1[sik] = round(s1[sik - 1] + s1[sik],2)
+                s2[0] = 0
+                for sik in range(1, len(s2)):
+                    s2[sik] = round(s2[sik - 1] + s2[sik],2)
+
+            elif self.followup=='uniform':
+                samp_s1_idx = np.random.choice(range(1, self.sdense.size), (self.num_obs_x1-1), replace=False)
+                samp_s1_idx.sort()
+                s1 = [0]+self.sdense[samp_s1_idx].tolist()
+                samp_s2_idx = np.random.choice(range(1, self.sdense.size), (self.num_obs_x2-1), replace=False)
+                samp_s2_idx.sort()
+                s2 = [0]+self.sdense[samp_s2_idx].tolist()
+            else:
+                print("please specify follow-up distribution")
             X1_true = odeint(dX_dt,X_0,s1)[:,0]
             X2_true = odeint(dX_dt,X_0,s2)[:,1]
 
@@ -368,7 +401,7 @@ class FunctionalData(Dataset):
                  num_obs_x1=5,
                  num_obs_x2=7,
                  sd_v=0., sd_u=0., rho_w=0.,rho_b=0.,scenario=None,
-                 seed=0):
+                 seed=0,followup=None):
         self.num_samples = num_samples
         self.lambdaX1 = lambdaX1
         self.lambdaX2 = lambdaX2
@@ -383,12 +416,14 @@ class FunctionalData(Dataset):
         self.rho_w = rho_w
         self.rho_b = rho_b
         self.scenario=scenario
+        self.followup = followup
 
         self.seed = seed
 
         # Generate data
         self.data = [] # True dense data
         self.SparseData = [] # True sparse data
+
         print("Creating dataset...", flush=True)
 
         np.random.seed(self.seed)
@@ -424,6 +459,7 @@ class FunctionalData(Dataset):
     def generate_ts(self, dense):
         # X1(t), X2(t) generated at the same time points
         def x1x2(s):
+            s=np.array(s)
             """
             Return (X1) and (X2) populations
             """
@@ -499,10 +535,19 @@ class FunctionalData(Dataset):
             print(type(X_true))
             return s, X_true
         else:
-            s = np.random.exponential(self.lambdaX1, sizeX)
-            s[0] = 0
-            for sik in range(1, len(s)):
-                s[sik] = round(s[sik - 1] + s[sik],2)  # calculate time stamps by accumulating follow-up period
+            if self.followup=='exponential':
+                s = np.random.exponential(self.lambdaX1, sizeX)
+                s[0] = 0
+                for sik in range(1, len(s)):
+                    s[sik] = round(s[sik - 1] + s[sik],2)  # calculate time stamps by accumulating follow-up period
+
+            elif self.followup=='uniform':
+                samp_s_idx = np.random.choice(range(1, self.sdense.size), (sizeX-1), replace=False)
+                samp_s_idx.sort()
+                s = [0]+self.sdense[samp_s_idx].tolist()
+
+            else: print("please specify follow-up distribution")
+
             X_true = np.transpose(x1x2(s))
 
             sigmaMatrix = error_cov(sizeX=len(X_true),scenario=self.scenario)
@@ -578,15 +623,26 @@ class FunctionalData(Dataset):
             return s, X_true
 
         else:
-            s1 = np.random.exponential(self.lambdaX1, sizeX1)
-            s2 = np.random.exponential(self.lambdaX2, sizeX2)
+            if self.followup=='exponential':
+                s1 = np.random.exponential(self.lambdaX1, sizeX1)
+                s2 = np.random.exponential(self.lambdaX2, sizeX2)
 
-            s1[0] = 0
-            for sik in range(1, len(s1)):
-                s1[sik] = round(s1[sik - 1] + s1[sik], 2)
-            s2[0] = 0
-            for sik in range(1, len(s2)):
-                s2[sik] = round(s2[sik - 1] + s2[sik], 2)
+                s1[0] = 0
+                for sik in range(1, len(s1)):
+                    s1[sik] = round(s1[sik - 1] + s1[sik], 2)
+                s2[0] = 0
+                for sik in range(1, len(s2)):
+                    s2[sik] = round(s2[sik - 1] + s2[sik], 2)
+
+            elif self.followup=='uniform':
+                samp_s1_idx = np.random.choice(range(1, self.sdense.size), (self.num_obs_x1-1), replace=False)
+                samp_s1_idx.sort()
+                samp_s2_idx = np.random.choice(range(1, self.sdense.size), (self.num_obs_x2-1), replace=False)
+                samp_s2_idx.sort()
+                s1 = [0]+ self.sdense[samp_s1_idx].tolist()
+                s2 = [0]+ self.sdense[samp_s2_idx].tolist()
+            else:
+                print("please specify follow-up distribution")
             X1_true = np.transpose(x1x2(s1))[:, 0]
             X2_true = np.transpose(x1x2(s2))[:, 1]
 
@@ -608,17 +664,22 @@ class FunctionalData(Dataset):
 
 if __name__ == "__main__":
     ts_equal = True
-    sdense = np.linspace(0, 5, 100)
+    sdense = np.linspace(0, 10, 100)
 
     # datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
-    #                                           num_samples=1, sd_u=0.0, sd_v=0.0,rho_b=0.3,rho_w=0.5, scenario='simA',
-    #                                           num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=1)
+    #                                           num_samples=1, sd_u=0.1, sd_v=0.1,rho_b=0.3,rho_w=0.5, scenario='simA',
+    #                                           initial=1.0,
+    #                                           num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=1,followup='uniform')
 
     datasets = FunctionalData(sdense=sdense, num_samples=1, sd_u=2.0, sd_v=2.0,rho_b=0.,rho_w=0., scenario='simA',
-                                                  num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=2)
+                                                  num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=1,followup='exponential')
     if ts_equal == True:
         t,x_obs,x_true = datasets[0][1]
-        # print(x_obs)
+        print(t)
+        print(x_obs)
+        print(x_true)
+        time, x_true = datasets[0][0]
+        print(x_true)
         for i in range(1):
             time, x_true = datasets[i][0]
             plt.plot(time.numpy(), x_true.numpy()[:, 0],label=r'$\mu_1(t)$')
@@ -629,9 +690,15 @@ if __name__ == "__main__":
         plt.legend()
         # plt.savefig('/N/u/liyuny/Carbonate/Paper1/ODEstudy2')
         plt.show()
+
     else:
         t1, t2, x1_obs, x2_obs, x1_true, x2_true = datasets[0][1]
-        # print(x1_obs)
+        print(t1)
+        print(t2)
+        print(x1_obs)
+        print(x1_true)
+        print(x2_obs)
+        print(x2_true)
         for i in range(1):
             t1,t2, x1_obs,x2_obs, x1_true,x2_true = datasets[i][1]
             time,x_true = datasets[i][0]
