@@ -21,10 +21,10 @@ def appPlot(folder):
     plt.savefig(folder+'/X0')
 
 # Plot Simulation Study
-def simPlot(folder):
+def simPlot(folder,seed):
     # folder = '/N/slate/liyuny/cnode_ffr_main/results/Train_Init/simA/test_100_0.3_10_False_0.2_0.1_2.0'
 
-    data = torch.load(folder+'/x0Record.pt')
+    data = torch.load(folder+'/x0Record_'+str(seed)+'.pt')
     color = ['orange','c']
     legends = ["X1 Initial Value Estimate","X2 Initial Value Estimate"]
 
@@ -38,8 +38,9 @@ def simPlot(folder):
     plt.xlabel("Training Epochs")
     plt.ylabel("Initial Value")
     plt.legend()
-    plt.savefig(folder+'/X0')
+    plt.savefig(folder+'/X0_'+str(seed))
 
 if __name__=='__main__':
-    folder = '/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/deterministic_lv/simA/104_0.3_5_False_0.3_0.1_2.0'
-    simPlot(folder)
+    folder = '/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/covariate/deterministic_lv/simA/104_0.3_5_True_0.3_0.1_2.0'
+    for seed in range(3):
+            simPlot(folder,seed)

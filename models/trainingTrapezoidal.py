@@ -119,7 +119,7 @@ class Trainer:
                 x0Record.append(updatedx0)
                 print('init_B:{},\n init_epoch: {}, \n init_epoch_loss: {}'.format(blockEpoch, epoch,epoch_loss))
                 print('init_updatedx0 output:{}'.format(updatedx0))
-            torch.save(x0Record, osp.join(self.folder, 'x0Record' + '.pt'))
+            torch.save(x0Record, osp.join(self.folder, 'x0Record_' + str(seed)+ '.pt'))
 
 
     def train_epoch(self, data_loader, epoch, seed):

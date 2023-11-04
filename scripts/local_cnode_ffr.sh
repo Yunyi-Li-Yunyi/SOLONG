@@ -1,28 +1,14 @@
 #!/bin/bash
 
-#SBATCH -J simulation
-#SBATCH -p general
-#SBATCH -o sim_%j.txt
-#SBATCH -e error_%j.err
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=liyuny@iu.edu
-#SBATCH --nodes=1
-#SBATCH --exclude=c2
-#SBATCH --ntasks-per-node=1
-#SBATCH --time=20:30:00
-#SBATCH --mem=100G
-#SBATCH --cpus-per-task=128
-
 #Load any modules that your program needs
-module load python
 #ROOTDIR=`readlink -f $0 | xargs dirname`/
 ROOTDIR='/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/'
-OUTDIR='/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/test'
+OUTDIR='/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/covariate/deterministic_lv'
 export PYTHONPATH=$PYTHONPATH:$ROOTDIR
 echo $PWD
 
 scenarioIndex=(simA)
-num_samplesIndex=(100)
+num_samplesIndex=(104)
 num_obs_xIndex=(5)
 sd_uvIndex=(0.3)
 rhowIndex=(0.3)
@@ -39,8 +25,9 @@ for scenario in ${scenarioIndex[*]}; do
       for lambda in ${lambdaIndex[*]}; do
 	for rho_b in ${rhobIndex[*]}; do
 	echo Run simulation
-	srun python -m main.main \
+	python -m main.main \
 	--exp_name $num_samples'_'$sd_uv'_'$num_obs_x'_'$ts_equal'_'$rho_w'_'$rho_b'_'$lambda\
+	--data 'deterministic_lv' \
 	--scenario $scenario \
 	--ts_equal $ts_equal \
 	--num_samples $num_samples \
@@ -48,6 +35,7 @@ for scenario in ${scenarioIndex[*]}; do
 	--lambdaX1 $lambda \
 	--num_obs_x2 $num_obs_x \
 	--lambdaX2 $lambda \
+	--rangeMax 15 \
 	--sd_u $sd_uv \
 	--sd_v $sd_uv \
 	--rho_w $rho_w \
