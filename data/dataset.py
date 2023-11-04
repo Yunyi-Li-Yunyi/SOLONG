@@ -77,7 +77,7 @@ class DeterministicLotkaVolterraData(Dataset):
                  num_obs_x1=5,
                  num_obs_x2=7,
                  sd_v=0., sd_u=0., rho_w=0.,rho_b=0.,scenario=None,
-                 seed=0, followup=None):
+                 seed=0, followup=None, coefs=[0.,1.0]):
 
         self.alpha = alpha
         self.beta = beta
@@ -100,6 +100,8 @@ class DeterministicLotkaVolterraData(Dataset):
         self.rho_b = rho_b
         self.scenario=scenario
         self.followup=followup
+
+        self.coefs=coefs
 
         self.seed = seed
 
@@ -124,11 +126,11 @@ class DeterministicLotkaVolterraData(Dataset):
 
             # Generate SparseData
             if ts_equal==True: # Sparse data for synchronous
-                timseSparse, states_obsSparse, states_trueSparse = self.generate_ts(dense=False)
+                timseSparse, states_obsSparse, states_trueSparse,c = self.generate_ts(dense=False)
                 timseSparse = torch.FloatTensor(timseSparse)
                 states_obsSparse = torch.FloatTensor(states_obsSparse)
                 states_trueSparse = torch.FloatTensor(states_trueSparse)
-                self.SparseData.append((timseSparse, states_obsSparse, states_trueSparse))
+                self.SparseData.append((timseSparse, states_obsSparse, states_trueSparse,c))
             else: # Sparse data for asynchronous
                 t1,t2,x1_obs,x2_obs,x1_true,x2_true = self.generate_ts_2(dense=False)
                 t1=torch.FloatTensor(t1)
@@ -242,8 +244,9 @@ class DeterministicLotkaVolterraData(Dataset):
 
             error = np.random.multivariate_normal(meanVector, sigmaMatrix, 1).reshape((2,-1)).T
             X_obs = X_true + error
-
-            return s, X_obs, X_true
+            c = np.random.binomial(1,  1,1)
+            X_obs = X_obs + np.array(self.coefs)*c
+            return s, X_obs, X_true, c
 
     def generate_ts_2(self, dense):
         # X1(t), X2(t) asynchronous
@@ -666,15 +669,16 @@ if __name__ == "__main__":
     ts_equal = True
     sdense = np.linspace(0, 10, 100)
 
-    # datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
-    #                                           num_samples=1, sd_u=0.1, sd_v=0.1,rho_b=0.3,rho_w=0.5, scenario='simA',
-    #                                           initial=1.0,
-    #                                           num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=1,followup='uniform')
+    datasets = DeterministicLotkaVolterraData(alpha=3. / 4, beta=1. / 10, gamma=1. / 10, sdense=sdense,
+                                              num_samples=1, sd_u=0.1, sd_v=0.1,rho_b=0.3,rho_w=0.5, scenario='simA',
+                                              initial=1.0,
+                                              num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=1,followup='uniform')
 
-    datasets = FunctionalData(sdense=sdense, num_samples=1, sd_u=2.0, sd_v=2.0,rho_b=0.,rho_w=0., scenario='simA',
-                                                  num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=1,followup='exponential')
+    # datasets = FunctionalData(sdense=sdense, num_samples=1, sd_u=2.0, sd_v=2.0,rho_b=0.,rho_w=0., scenario='simA',
+    #                                               num_obs_x1=5, num_obs_x2=5,ts_equal=ts_equal,seed=1,followup='exponential')
     if ts_equal == True:
-        t,x_obs,x_true = datasets[0][1]
+        t,x_obs,x_true,c = datasets[0][1]
+        print(c)
         print(t)
         print(x_obs)
         print(x_true)
@@ -693,12 +697,6 @@ if __name__ == "__main__":
 
     else:
         t1, t2, x1_obs, x2_obs, x1_true, x2_true = datasets[0][1]
-        print(t1)
-        print(t2)
-        print(x1_obs)
-        print(x1_true)
-        print(x2_obs)
-        print(x2_true)
         for i in range(1):
             t1,t2, x1_obs,x2_obs, x1_true,x2_true = datasets[i][1]
             time,x_true = datasets[i][0]

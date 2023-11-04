@@ -102,7 +102,7 @@ def run(device,seed):
     ts_equal = args.ts_equal
     # trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed,args.ifplot)
     trainer = Trainer(sim, device, ts_equal, func, folder, seed, args.ifplot,args.lr,0,
-                      args.earlyStop,optimizer,initialrefine=True)
+                      args.earlyStop,optimizer,initialrefine=False,initbeta=[0.1,0.1])
     print('Training...')
     start_time = time.time()
     trainer.train(data_loader, args.epochs, args.epochs, seed)

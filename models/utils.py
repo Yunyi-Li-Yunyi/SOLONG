@@ -6,8 +6,7 @@ import os.path as osp
 
 def ObservedData(TimesSparse, StatesObsSparse, StatesTrueSparse):
     """
-    Given Sparse inputs x and y (with nans) return combined x and y
-
+    Given Sparse inputs x and y (with nans) return pooling x and y
     Parameters
     ----------
     TimesSparse: torch.Tensor

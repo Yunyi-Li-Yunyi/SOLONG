@@ -126,7 +126,7 @@ class Trainer:
                 t = t.to(self.device)
                 x_obs = x_obs.to(self.device)
                 x_true = x_true.to(self.device)
-                sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true, c)
+                sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true)
                 x0 = sort_x_obs[0].to(self.device)
                 sort_t = sort_t.to(self.device)
                 sort_x_obs = sort_x_obs.to(self.device)
