@@ -41,9 +41,9 @@ for scenario in ${scenarioIndex[*]}; do
 	--rho_w $rho_w \
 	--rho_b $rho_b \
 	--h_dim 32 \
-	--epochs 5000 \
+	--epochs 5 \
 	--iter_start 0 \
-	--iter_end 1 \
+	--iter_end 3 \
 	--outdir $OUTDIR
 	done
       done

@@ -110,7 +110,7 @@ class Trainer:
                 x0Record.append(updatedx0)
                 print('init_B:{},\n init_epoch: {}, \n init_epoch_loss: {}'.format(blockEpoch, epoch,epoch_loss))
                 print('init_updatedx0 output:{}'.format(updatedx0))
-            torch.save(x0Record, osp.join(self.folder, 'x0Record' + '.pt'))
+            torch.save(x0Record, osp.join(self.folder, 'x0Record_' + str(seed)+'.pt'))
 
 
     def train_epoch(self, data_loader, epoch, betaHat,seed):
@@ -126,7 +126,7 @@ class Trainer:
                 t = t.to(self.device)
                 x_obs = x_obs.to(self.device)
                 x_true = x_true.to(self.device)
-                sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true, c)
+                sort_t, sort_x_obs, sort_x_true = od(t, x_obs, x_true)
                 x0 = sort_x_obs[0].to(self.device)
                 sort_t = sort_t.to(self.device)
                 sort_x_obs = sort_x_obs.to(self.device)
