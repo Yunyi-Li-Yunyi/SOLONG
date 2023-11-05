@@ -38,15 +38,17 @@ parser.add_argument('--lambdaX2', type=float, default=2.) # scale parameter for 
 
 parser.add_argument('--data', type=str, choices=['deterministic_lv','functional'], default='deterministic_lv')
 parser.add_argument('--h_dim', type=int, default=32)
-# parser.add_argument('--batch_size', type=int, default=66)
+parser.add_argument('--n_hiddenly', type=int, default=2)
 
+# parser.add_argument('--batch_size', type=int, default=66)
+parser.add_argument('--Bepochs', type=int, default=50)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--earlyStop', type=float, default=1e-5)
 parser.add_argument('--iter_start', type=int, default=0)
 parser.add_argument('--iter_end', type=int, default=0)
+parser.add_argument('--initialrefine',type=eval, choices=[True, False], default=True)
 
 parser.add_argument('--num_samples', type=int, default=300)
-
 parser.add_argument('--ts_equal',type=eval, choices=[True, False], default=False)
 parser.add_argument('--num_obs_x1',type=int,default=5)
 parser.add_argument('--num_obs_x2',type=int,default=5)
@@ -68,7 +70,7 @@ def run(device,seed):
                                                 lambdaX2=args.lambdaX2,sdense=sdense,
                                                 ts_equal=args.ts_equal,
                                                 num_obs_x1=args.num_obs_x1,num_obs_x2=args.num_obs_x2,
-                                                 seed=seed,followup='uniform')
+                                                 seed=seed,followup='exponential')
     elif args.data == 'functional':
         sdense = np.linspace(0, args.rangeMax, 100)
         dataset = FunctionalData(sdense=sdense, num_samples=args.num_samples, sd_u=args.sd_u, sd_v=args.sd_v,
@@ -82,9 +84,9 @@ def run(device,seed):
 
     func = None
     if args.model == 'vnode':
-        func = VanillaODEFunc(t_dim, h_dim, y_dim, n_hiddenly,exclude_time=True).to(device)
+        func = VanillaODEFunc(t_dim, h_dim, y_dim, args.n_hiddenly,exclude_time=True).to(device)
     elif args.model == 'timevnode':
-        func = VanillaODEFunc(t_dim, h_dim, y_dim, n_hiddenly,exclude_time=False).to(device)
+        func = VanillaODEFunc(t_dim, h_dim, y_dim, args.n_hiddenly,exclude_time=False).to(device)
 
     if args.load:
         func = torch.load(osp.join(folder, 'trained_model_'+str(seed)+'.pth')).to(device)
@@ -102,10 +104,10 @@ def run(device,seed):
     ts_equal = args.ts_equal
     # trainer = Trainer(sim,device,ts_equal, func, optimizer, folder,seed,args.ifplot)
     trainer = Trainer(sim, device, ts_equal, func, folder, seed, args.ifplot,args.lr,0,
-                      args.earlyStop,optimizer,initialrefine=True)
+                      args.earlyStop,optimizer,args.initialrefine)
     print('Training...')
     start_time = time.time()
-    trainer.train(data_loader, args.epochs, args.epochs, seed)
+    trainer.train(data_loader, args.Bepochs, args.epochs, seed)
     end_time = time.time()
     print('Total time = ' + str(end_time - start_time))
 

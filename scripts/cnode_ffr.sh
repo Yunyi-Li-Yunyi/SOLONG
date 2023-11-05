@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH -J simulation
-#SBATCH -p general
+#SBATCH -J simA
+#SBATCH -p debug
 #SBATCH -o sim_%j.txt
 #SBATCH -e error_%j.err
 #SBATCH --mail-type=ALL
@@ -9,22 +9,23 @@
 #SBATCH --nodes=1
 #SBATCH --exclude=c2
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=20:30:00
+#SBATCH --time=4:00:00
 #SBATCH --mem=100G
 #SBATCH --cpus-per-task=128
+#SBATCH -A r00330
 
 #Load any modules that your program needs
 module load python
 #ROOTDIR=`readlink -f $0 | xargs dirname`/
-ROOTDIR='/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/'
-OUTDIR='/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/test'
+ROOTDIR='/N/slate/liyuny/Paper1/'
+OUTDIR='/N/slate/liyuny/Paper1/results/notrefine/exponential'
 export PYTHONPATH=$PYTHONPATH:$ROOTDIR
 echo $PWD
 
 scenarioIndex=(simA)
 num_samplesIndex=(100)
 num_obs_xIndex=(5)
-sd_uvIndex=(0.3)
+sd_uvIndex=(0.3 1.0)
 rhowIndex=(0.3)
 rhobIndex=(0.1)
 lambdaIndex=(2.0)
@@ -52,10 +53,15 @@ for scenario in ${scenarioIndex[*]}; do
 	--sd_v $sd_uv \
 	--rho_w $rho_w \
 	--rho_b $rho_b \
-	--h_dim 32 \
-	--epochs 5 \
+	--rangeMax 15 \
+	--h_dim 5 \
+	--n_hiddenly 3 \
+	--initialrefine False \
+	--Bepochs 1 \
+	--epochs 5001 \
 	--iter_start 0 \
-	--iter_end 3 \
+	--iter_end 100 \
+	--ifplot True \
 	--outdir $OUTDIR
 	done
       done

@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import os
+import os.path as osp
+import json
 # Plot Application Study
 def appPlot(folder):
     # folder = '/N/slate/liyuny/cnode_ffr_main/results/AdniCogNoTime/APOE0_7var_earlystop5e4_block_random/1'
@@ -19,6 +22,7 @@ def appPlot(folder):
     plt.ylabel("Initial Value")
     plt.legend()
     plt.savefig(folder+'/X0')
+    plt.close()
 
 # Plot Simulation Study
 def simPlot(folder,seed):
@@ -41,6 +45,10 @@ def simPlot(folder,seed):
     plt.savefig(folder+'/X0_'+str(seed))
 
 if __name__=='__main__':
-    folder = '/Users/yunyili/Library/CloudStorage/Dropbox/IN/Dissertation/Paper1/github/cnode_ffr_main/results/covariate/deterministic_lv/simA/104_0.3_5_True_0.3_0.1_2.0'
-    for seed in range(3):
+    folder = '/N/slate/liyuny/Paper1/results/n_hiddenly2/simA/100_0.3_5_True_0.3_0.1_2.0'
+    with open(osp.join(folder, 'args.txt'), 'r') as f:
+        arguments = json.load(f)
+    iter_start = arguments['iter_start']
+    iter_end = arguments['iter_end']
+    for seed in range(iter_start,iter_end):
             simPlot(folder,seed)

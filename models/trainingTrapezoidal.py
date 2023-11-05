@@ -90,7 +90,6 @@ class Trainer:
         # self.train()
         updatedx0 = torch.tensor([0.1,0.1])
         x0Record = []
-        lastLoss = 9999
         if self.initialrefine==False:
             for epoch in range(epochs):
                 self.train_epoch(train_data_loader, epoch, seed)
@@ -119,7 +118,7 @@ class Trainer:
                 x0Record.append(updatedx0)
                 print('init_B:{},\n init_epoch: {}, \n init_epoch_loss: {}'.format(blockEpoch, epoch,epoch_loss))
                 print('init_updatedx0 output:{}'.format(updatedx0))
-            torch.save(x0Record, osp.join(self.folder, 'x0Record_' + str(seed)+ '.pt'))
+            torch.save(x0Record, osp.join(self.folder, 'x0Record_' + str(seed)+'.pt'))
 
 
     def train_epoch(self, data_loader, epoch, seed):
@@ -144,8 +143,8 @@ class Trainer:
                 # x0 = torch.tensor(self.initialNet(0,x0_guess))
                 # print(x0)
                 pred_x = odeint(self.ODEFunc, x0, sort_t).to(self.device)
-                pred_reshape = pred_x.view(-1,2)
-                loss = torch.mean(torch.square(pred_reshape - sort_x_obs))
+                # pred_reshape = pred_x.view(-1,2)
+                loss = torch.mean(torch.square(pred_x - sort_x_obs))
                 loss.backward()
                 self.optimizer.step()
 
@@ -305,7 +304,7 @@ class Trainer:
                     # params = (list(x0func.parameters()))
                     optimizer = torch.optim.Adam(params, lr=self.lr)
                     optimizer.zero_grad()
-                    l1_lambda = 0.001
+                    l1_lambda = 0.0001
                     l1_norm = sum(torch.linalg.norm(p, 1) for p in params)
                     loss = loss + l1_lambda * l1_norm
                     loss.backward()
@@ -321,7 +320,7 @@ class Trainer:
 
 
             # plot checking
-            if blockEpoch % 299 ==0:
+            if blockEpoch % 1000 ==0:
                 # full time points
                 Xfull, trueYfull = data[:][0]
                 Xfull = Xfull.to(self.device)
